@@ -299,18 +299,21 @@ class LayeredWindow:
 
 class OverlayWindow:
     """Fenetre pygame borderless, topmost, deplacable, avec transparence
-    layered (ou fond chroma key de repli selon config.TRANSPARENT_BACKGROUND)."""
+    layered (ou fond chroma key de repli selon transparent_background)."""
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, width, height, transparent_background, chroma_fallback_color):
+        self.width = width
+        self.height = height
+        self.chroma_fallback_color = chroma_fallback_color
+
         pygame.display.set_caption("HitGlow")
-        self.screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.NOFRAME)
+        self.screen = pygame.display.set_mode((width, height), pygame.NOFRAME)
         self.hwnd = pygame.display.get_wm_info()["window"]
         self._make_topmost()
 
         self.layered = None
-        if config.TRANSPARENT_BACKGROUND:
-            self.layered = LayeredWindow(self.hwnd, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
+        if transparent_background:
+            self.layered = LayeredWindow(self.hwnd, width, height)
 
         self._drag_offset = None
         self._win_pos = self._get_window_pos()
@@ -323,11 +326,19 @@ class OverlayWindow:
         user32.GetWindowRect(self.hwnd, ctypes.byref(rect))
         return rect.left, rect.top
 
+    def get_pos(self):
+        return self._win_pos
+
+    def move_to(self, pos):
+        x, y = pos
+        user32.SetWindowPos(self.hwnd, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER)
+        self._win_pos = (x, y)
+
     def present(self, surface):
         if self.layered is not None:
             self.layered.update(surface)
         else:
-            self.screen.fill(self.config.CHROMA_FALLBACK_COLOR)
+            self.screen.fill(self.chroma_fallback_color)
             self.screen.blit(surface, (0, 0))
             pygame.display.flip()
             self._make_topmost()

@@ -9,6 +9,9 @@ des boutons est donc un fondu de COULEUR (RGB) vers COLOR_OFF, jamais un
 fondu d'alpha.
 """
 
+import ctypes
+from ctypes import wintypes
+
 import pygame
 
 
@@ -93,3 +96,182 @@ def _draw_calibration_overlay(surface, lines):
         text = font.render(line, False, (255, 255, 255)).convert_alpha()
         panel.blit(text, (8, 8 + i * line_height))
     surface.blit(panel, (0, 0))
+
+
+user32 = ctypes.windll.user32
+gdi32 = ctypes.windll.gdi32
+
+GWL_EXSTYLE = -20
+WS_EX_LAYERED = 0x00080000
+HWND_TOPMOST = -1
+SWP_NOMOVE = 0x0002
+SWP_NOSIZE = 0x0001
+SWP_NOZORDER = 0x0004
+ULW_ALPHA = 0x02
+AC_SRC_OVER = 0x00
+AC_SRC_ALPHA = 0x01
+DIB_RGB_COLORS = 0
+
+
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+class SIZE(ctypes.Structure):
+    _fields_ = [("cx", ctypes.c_long), ("cy", ctypes.c_long)]
+
+
+class BLENDFUNCTION(ctypes.Structure):
+    _fields_ = [
+        ("BlendOp", ctypes.c_byte),
+        ("BlendFlags", ctypes.c_byte),
+        ("SourceConstantAlpha", ctypes.c_byte),
+        ("AlphaFormat", ctypes.c_byte),
+    ]
+
+
+class BITMAPINFOHEADER(ctypes.Structure):
+    _fields_ = [
+        ("biSize", wintypes.DWORD),
+        ("biWidth", ctypes.c_long),
+        ("biHeight", ctypes.c_long),
+        ("biPlanes", wintypes.WORD),
+        ("biBitCount", wintypes.WORD),
+        ("biCompression", wintypes.DWORD),
+        ("biSizeImage", wintypes.DWORD),
+        ("biXPelsPerMeter", ctypes.c_long),
+        ("biYPelsPerMeter", ctypes.c_long),
+        ("biClrUsed", wintypes.DWORD),
+        ("biClrImportant", wintypes.DWORD),
+    ]
+
+
+class BITMAPINFO(ctypes.Structure):
+    _fields_ = [("bmiHeader", BITMAPINFOHEADER), ("bmiColors", wintypes.DWORD * 3)]
+
+
+gdi32.CreateDIBSection.argtypes = [
+    wintypes.HDC, ctypes.POINTER(BITMAPINFO), wintypes.UINT,
+    ctypes.POINTER(ctypes.c_void_p), wintypes.HANDLE, wintypes.DWORD,
+]
+gdi32.CreateDIBSection.restype = ctypes.c_void_p
+
+user32.UpdateLayeredWindow.argtypes = [
+    wintypes.HWND, wintypes.HDC, ctypes.POINTER(POINT), ctypes.POINTER(SIZE),
+    wintypes.HDC, ctypes.POINTER(POINT), wintypes.COLORREF,
+    ctypes.POINTER(BLENDFUNCTION), wintypes.DWORD,
+]
+user32.UpdateLayeredWindow.restype = wintypes.BOOL
+
+
+def get_cursor_pos():
+    """Position du curseur en coordonnees ecran (pas coordonnees fenetre)."""
+    pt = POINT()
+    user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
+
+
+class LayeredWindow:
+    """Pousse une pygame.Surface (RGBA, alpha binaire) vers l'ecran via
+    UpdateLayeredWindow pour une vraie transparence par pixel."""
+
+    def __init__(self, hwnd, width, height):
+        self.hwnd = hwnd
+        self.width = width
+        self.height = height
+
+        style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED)
+
+        self._screen_dc = user32.GetDC(0)
+        self._mem_dc = gdi32.CreateCompatibleDC(self._screen_dc)
+
+        bmi = BITMAPINFO()
+        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        bmi.bmiHeader.biWidth = width
+        bmi.bmiHeader.biHeight = -height  # top-down
+        bmi.bmiHeader.biPlanes = 1
+        bmi.bmiHeader.biBitCount = 32
+        bmi.bmiHeader.biCompression = 0  # BI_RGB
+
+        self._bits_ptr = ctypes.c_void_p()
+        self._bitmap = gdi32.CreateDIBSection(
+            self._mem_dc, ctypes.byref(bmi), DIB_RGB_COLORS,
+            ctypes.byref(self._bits_ptr), None, 0,
+        )
+        self._old_bitmap = gdi32.SelectObject(self._mem_dc, self._bitmap)
+
+    def update(self, surface):
+        """surface : pygame.Surface RGBA de taille (width, height), alpha
+        binaire (0 ou 255) uniquement — voir le docstring du module."""
+        raw = pygame.image.tostring(surface, "BGRA")
+        ctypes.memmove(self._bits_ptr, raw, len(raw))
+
+        size = SIZE(self.width, self.height)
+        src_point = POINT(0, 0)
+        blend = BLENDFUNCTION(AC_SRC_OVER, 0, 255, AC_SRC_ALPHA)
+
+        user32.UpdateLayeredWindow(
+            self.hwnd, self._screen_dc, None, ctypes.byref(size),
+            self._mem_dc, ctypes.byref(src_point), 0, ctypes.byref(blend), ULW_ALPHA,
+        )
+
+    def close(self):
+        gdi32.SelectObject(self._mem_dc, self._old_bitmap)
+        gdi32.DeleteObject(self._bitmap)
+        gdi32.DeleteDC(self._mem_dc)
+        user32.ReleaseDC(0, self._screen_dc)
+
+
+class OverlayWindow:
+    """Fenetre pygame borderless, topmost, deplacable, avec transparence
+    layered (ou fond chroma key de repli selon config.TRANSPARENT_BACKGROUND)."""
+
+    def __init__(self, config):
+        self.config = config
+        pygame.display.set_caption("HitGlow")
+        self.screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.NOFRAME)
+        self.hwnd = pygame.display.get_wm_info()["window"]
+        self._make_topmost()
+
+        self.layered = None
+        if config.TRANSPARENT_BACKGROUND:
+            self.layered = LayeredWindow(self.hwnd, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
+
+        self._drag_offset = None
+        self._win_pos = self._get_window_pos()
+
+    def _make_topmost(self):
+        user32.SetWindowPos(self.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
+
+    def _get_window_pos(self):
+        rect = wintypes.RECT()
+        user32.GetWindowRect(self.hwnd, ctypes.byref(rect))
+        return rect.left, rect.top
+
+    def present(self, surface):
+        if self.layered is not None:
+            self.layered.update(surface)
+        else:
+            self.screen.fill(self.config.CHROMA_FALLBACK_COLOR)
+            self.screen.blit(surface, (0, 0))
+            pygame.display.flip()
+            self._make_topmost()
+
+    def start_drag(self, cursor_pos):
+        self._drag_offset = (cursor_pos[0] - self._win_pos[0], cursor_pos[1] - self._win_pos[1])
+
+    def drag_to(self, cursor_pos):
+        if self._drag_offset is None:
+            return
+        new_x = cursor_pos[0] - self._drag_offset[0]
+        new_y = cursor_pos[1] - self._drag_offset[1]
+        user32.SetWindowPos(self.hwnd, 0, new_x, new_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER)
+        self._win_pos = (new_x, new_y)
+
+    def end_drag(self):
+        self._drag_offset = None
+
+    def close(self):
+        if self.layered is not None:
+            self.layered.close()

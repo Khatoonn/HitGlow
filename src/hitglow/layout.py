@@ -14,14 +14,15 @@ DIRECTION_LAYOUT = {
 }
 
 # Bloc actions : 3 colonnes x 2 rangees en quinconce diagonal, d'apres
-# le croquis fourni par l'utilisateur.
+# le croquis fourni par l'utilisateur. Rapproche du bloc directions (moins
+# d'espace vide entre les deux blocs).
 ACTION_LAYOUT = {
-    "1": (330, 130),
-    "3": (320, 195),
-    "2": (400, 105),
-    "4": (390, 165),
-    "HEAT": (470, 110),
-    "RAGE": (460, 180),
+    "1": (260, 130),
+    "3": (250, 195),
+    "2": (330, 105),
+    "4": (320, 165),
+    "HEAT": (400, 110),
+    "RAGE": (390, 180),
 }
 
 ACTION_ROW_TOP = {"1", "2", "HEAT"}

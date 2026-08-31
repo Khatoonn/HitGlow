@@ -109,4 +109,7 @@ def test_render_frame_draws_direction_labels_when_provided():
         direction_layout={"LEFT": (100, 100)}, action_layout={},
         circle_radius=30, label_color=(255, 255, 255), labels={"LEFT": "B"},
     )
-    assert without_label.get_at((100, 100))[:3] != with_label.get_at((100, 100))[:3]
+    region = [(x, y) for x in range(85, 116) for y in range(85, 116)]
+    without_pixels = [without_label.get_at(p)[:3] for p in region]
+    with_pixels = [with_label.get_at(p)[:3] for p in region]
+    assert without_pixels != with_pixels

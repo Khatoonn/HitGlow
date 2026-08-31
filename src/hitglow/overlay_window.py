@@ -57,7 +57,8 @@ def _build_font(font_spec, size):
     """Construit une pygame.font.Font a partir d'une spec {"family": ..,
     "path": ..} (voir settings_store DEFAULT_SETTINGS["font"]). path est
     prioritaire sur family ; sans spec (ou en cas d'echec de chargement),
-    retombe sur la police par defaut de pygame."""
+    retombe sur Segoe UI en gras (coherent avec la typo de la fenetre de
+    parametrage) ou, a defaut, la police par defaut de pygame."""
     if font_spec:
         path = font_spec.get("path")
         if path:
@@ -67,8 +68,10 @@ def _build_font(font_spec, size):
                 pass
         family = font_spec.get("family")
         if family:
-            return pygame.font.SysFont(family, size)
-    return pygame.font.SysFont(None, size)
+            return pygame.font.SysFont(family, size, bold=True)
+    if "segoeui" in pygame.font.get_fonts():
+        return pygame.font.SysFont("segoeui", size, bold=True)
+    return pygame.font.SysFont(None, size, bold=True)
 
 
 def build_glows(off_color, fade_ms, direction_names, action_names):

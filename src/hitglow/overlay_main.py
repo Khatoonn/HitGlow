@@ -103,7 +103,10 @@ def run():
             settings["direction_source"], settings["axis_mapping"], settings["axis_deadzone"],
             settings["button_direction_mapping"],
         )
-        actions = resolve_action_buttons(buttons, settings["action_buttons"])
+        actions = resolve_action_buttons(
+            axes, buttons, settings["action_buttons"],
+            settings["action_source"], settings["action_axis_mapping"], settings["axis_deadzone"],
+        )
         pressed = {**directions, **actions}
 
         now_ms = pygame.time.get_ticks()

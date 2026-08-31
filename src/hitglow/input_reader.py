@@ -40,11 +40,32 @@ def resolve_directions(
     return result
 
 
-def resolve_action_buttons(button_states, action_buttons):
-    """Calcule l'etat presse/relache de chaque bouton d'action nomme."""
+def resolve_action_buttons(
+    axis_values, button_states, action_buttons,
+    action_source=None, action_axis_mapping=None, axis_deadzone=0.5,
+):
+    """Calcule l'etat presse/relache de chaque bouton d'action nomme.
+
+    Chaque action peut venir d'un bouton digital (par defaut, y compris
+    quand action_source ne precise rien pour rester compatible avec les
+    anciens settings.json) ou d'un axe analogique — indispensable pour les
+    gachettes (LT/RT) souvent utilisees pour des actions comme Rage Art,
+    qui ne remontent jamais comme un bouton digital classique."""
+    action_source = action_source or {}
+    action_axis_mapping = action_axis_mapping or {}
     result = {}
     for name, index in action_buttons.items():
-        result[name] = bool(button_states[index]) if index is not None and index < len(button_states) else False
+        source = action_source.get(name) or "button"
+        if source == "axis":
+            mapping = action_axis_mapping.get(name)
+            if mapping is None:
+                result[name] = False
+            else:
+                axis_index, sign = mapping
+                value = axis_values[axis_index] if axis_index < len(axis_values) else 0.0
+                result[name] = (value * sign) > axis_deadzone
+        else:
+            result[name] = bool(button_states[index]) if index is not None and index < len(button_states) else False
     return result
 
 

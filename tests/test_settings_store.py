@@ -110,11 +110,20 @@ def test_apply_detection_button_to_direction():
 def test_apply_detection_button_to_action():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
     apply_detection(settings, "HEAT", False, ("button", 4))
+    assert settings["action_source"]["HEAT"] == "button"
     assert settings["action_buttons"]["HEAT"] == 4
 
 
-def test_apply_detection_ignores_hat_and_axis_for_action_buttons():
+def test_apply_detection_axis_to_action():
+    # Cas gachette (RT/LT) pour une action comme Rage Art.
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "RAGE", False, ("axis", (5, 1)))
+    assert settings["action_source"]["RAGE"] == "axis"
+    assert settings["action_axis_mapping"]["RAGE"] == [5, 1]
+
+
+def test_apply_detection_ignores_hat_for_action_buttons():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
     apply_detection(settings, "RAGE", False, ("hat", (1, 0)))
-    apply_detection(settings, "RAGE", False, ("axis", (0, 1)))
     assert settings["action_buttons"]["RAGE"] is None
+    assert settings["action_source"]["RAGE"] is None

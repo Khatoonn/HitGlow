@@ -77,6 +77,13 @@ def _mapping_status_text(settings, name, is_direction):
             return f"Bouton {index}" if index is not None else "Bouton (?)"
         return "Non mappe"
 
+    action_source = settings["action_source"].get(name)
+    if action_source == "axis":
+        mapping = settings["action_axis_mapping"].get(name)
+        if mapping:
+            sign = "+" if mapping[1] > 0 else "-"
+            return f"Axe {mapping[0]} ({sign})"
+        return "Axe (?)"
     index = settings["action_buttons"].get(name)
     return f"Bouton {index}" if index is not None else "Non mappe"
 
@@ -305,7 +312,7 @@ class SettingsApp:
         hat, axes, buttons = self.joystick_reader.poll(self.settings["hat_index"])
         current = {"hat": hat, "axes": axes, "buttons": buttons}
         result = settings_store.detect_new_input(self.detect_baseline, current)
-        if result is not None and (is_direction or result[0] == "button"):
+        if result is not None and (is_direction or result[0] in ("button", "axis")):
             settings_store.apply_detection(self.settings, target, is_direction, result)
             settings_store.save_settings(self.settings)
             status_label.configure(text=_mapping_status_text(self.settings, target, is_direction))
@@ -550,7 +557,10 @@ class SettingsApp:
             self.settings["direction_source"], self.settings["axis_mapping"], self.settings["axis_deadzone"],
             self.settings["button_direction_mapping"],
         )
-        actions = resolve_action_buttons(buttons, self.settings["action_buttons"])
+        actions = resolve_action_buttons(
+            axes, buttons, self.settings["action_buttons"],
+            self.settings["action_source"], self.settings["action_axis_mapping"], self.settings["axis_deadzone"],
+        )
         pressed = {**directions, **actions}
 
         now_ms = pygame.time.get_ticks()

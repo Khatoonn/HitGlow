@@ -16,6 +16,10 @@ DEFAULT_SETTINGS = {
     "axis_deadzone": 0.5,
     "button_direction_mapping": {"UP": None, "DOWN": None, "LEFT": None, "RIGHT": None},
     "action_buttons": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
+    # "button" (par defaut) ou "axis" — une gachette analogique (LT/RT) ne
+    # remonte jamais comme un bouton digital, d'ou ce choix par action.
+    "action_source": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
+    "action_axis_mapping": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
     "labels": {
         "LEFT": "B", "DOWN": "D", "RIGHT": "F", "UP": "U",
         "1": "1", "2": "2", "3": "3", "4": "4", "HEAT": "HEAT", "RAGE": "RAGE",
@@ -116,10 +120,12 @@ def apply_detection(settings, target, is_direction, detection):
     """Applique le resultat de detect_new_input() aux parametres, pour le
     mapping interactif ("Detecter") de la fenetre de parametrage.
 
-    Pour un bouton d'action (is_direction=False), seul un input de type
-    "button" est accepte : un hat/axe ignore accidentellement pendant
-    l'attente (drift de stick, etc.) ne doit pas produire un mapping
-    incorrect."""
+    Pour un bouton d'action (is_direction=False), un input de type "button"
+    ou "axis" est accepte — une gachette analogique (LT/RT, souvent utilisee
+    pour Rage Art) ne remonte jamais comme un bouton digital classique. Un
+    "hat" est en revanche toujours ignore pour une action : il n'a pas de
+    sens et n'arrive que par un mouvement accidentel du D-pad pendant
+    l'attente."""
     source, payload = detection
     if is_direction:
         if source == "hat":
@@ -131,4 +137,8 @@ def apply_detection(settings, target, is_direction, detection):
             settings["direction_source"][target] = "button"
             settings["button_direction_mapping"][target] = payload
     elif source == "button":
+        settings["action_source"][target] = "button"
         settings["action_buttons"][target] = payload
+    elif source == "axis":
+        settings["action_source"][target] = "axis"
+        settings["action_axis_mapping"][target] = list(payload)

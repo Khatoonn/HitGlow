@@ -55,12 +55,38 @@ def test_unmapped_direction_is_never_active():
 def test_resolve_action_buttons_reads_mapped_indices_only():
     action_buttons = {"1": 0, "2": None, "3": 5}
     result = resolve_action_buttons(
-        button_states=[True, False, False, False, False, False], action_buttons=action_buttons,
+        axis_values=[], button_states=[True, False, False, False, False, False], action_buttons=action_buttons,
     )
     assert result == {"1": True, "2": False, "3": False}
 
 
 def test_resolve_action_buttons_ignores_out_of_range_index():
     action_buttons = {"HEAT": 99}
-    result = resolve_action_buttons(button_states=[True, True], action_buttons=action_buttons)
+    result = resolve_action_buttons(axis_values=[], button_states=[True, True], action_buttons=action_buttons)
     assert result == {"HEAT": False}
+
+
+def test_resolve_action_buttons_defaults_missing_source_to_button():
+    # Compatibilite avec un settings.json existant sans cle "action_source".
+    action_buttons = {"1": 0}
+    result = resolve_action_buttons(axis_values=[], button_states=[True], action_buttons=action_buttons)
+    assert result == {"1": True}
+
+
+def test_resolve_action_buttons_reads_analog_trigger_via_axis():
+    # Cas RT/LT (gachette) : source "axis", au repos a -1.0, presse pres de +1.0.
+    action_buttons = {"RAGE": None}
+    action_source = {"RAGE": "axis"}
+    action_axis_mapping = {"RAGE": (5, 1)}
+
+    released = resolve_action_buttons(
+        axis_values=[0, 0, 0, 0, 0, -1.0], button_states=[], action_buttons=action_buttons,
+        action_source=action_source, action_axis_mapping=action_axis_mapping, axis_deadzone=0.5,
+    )
+    assert released == {"RAGE": False}
+
+    pressed = resolve_action_buttons(
+        axis_values=[0, 0, 0, 0, 0, 0.9], button_states=[], action_buttons=action_buttons,
+        action_source=action_source, action_axis_mapping=action_axis_mapping, axis_deadzone=0.5,
+    )
+    assert pressed == {"RAGE": True}

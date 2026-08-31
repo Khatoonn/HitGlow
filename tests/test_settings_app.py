@@ -40,6 +40,14 @@ def test_status_text_mapped_action():
     assert _mapping_status_text(settings, "HEAT", False) == "Bouton 4"
 
 
+def test_status_text_action_mapped_via_axis():
+    # Cas gachette (RT/LT), ex: Rage Art.
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    settings["action_source"]["RAGE"] = "axis"
+    settings["action_axis_mapping"]["RAGE"] = [5, 1]
+    assert _mapping_status_text(settings, "RAGE", False) == "Axe 5 (+)"
+
+
 def test_hex_roundtrip():
     assert _hex([255, 0, 128]) == "#ff0080"
     assert _hex_to_rgb("#ff0080") == [255, 0, 128]

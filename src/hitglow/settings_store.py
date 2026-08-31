@@ -15,11 +15,13 @@ DEFAULT_SETTINGS = {
     "axis_mapping": {"UP": None, "DOWN": None, "LEFT": None, "RIGHT": None},
     "axis_deadzone": 0.5,
     "button_direction_mapping": {"UP": None, "DOWN": None, "LEFT": None, "RIGHT": None},
+    "keyboard_mapping": {"UP": None, "DOWN": None, "LEFT": None, "RIGHT": None},
     "action_buttons": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
-    # "button" (par defaut) ou "axis" — une gachette analogique (LT/RT) ne
-    # remonte jamais comme un bouton digital, d'ou ce choix par action.
+    # "button" (par defaut), "axis" (gachette analogique LT/RT, qui ne
+    # remonte jamais comme un bouton digital) ou "keyboard".
     "action_source": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
     "action_axis_mapping": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
+    "action_keyboard_mapping": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
     "labels": {
         "LEFT": "B", "DOWN": "D", "RIGHT": "F", "UP": "U",
         "1": "1", "2": "2", "3": "3", "4": "4", "HEAT": "HEAT", "RAGE": "RAGE",
@@ -94,13 +96,17 @@ def resolve_joystick_index(available_names, saved_name, saved_index):
 
 
 def detect_new_input(baseline, current, axis_threshold=0.5):
-    """Compare deux etats bruts de manette ('hat', 'axes', 'buttons') et
-    retourne le premier input qui a change de facon significative depuis
-    baseline, sous la forme (source, payload) :
+    """Compare deux etats bruts ('hat', 'axes', 'buttons', et optionnellement
+    'keys' pour le clavier) et retourne le premier input qui a change de
+    facon significative depuis baseline, sous la forme (source, payload) :
       - ("hat", (x, y))
       - ("axis", (index, signe))
+      - ("key", code)
       - ("button", index)
-    Retourne None si rien de significatif n'a change."""
+    Retourne None si rien de significatif n'a change. 'keys', quand fourni,
+    est verifie avant 'buttons' : en mode clavier, baseline/current n'ont
+    pas de vrais boutons manette (listes vides), donc l'ordre n'a pas
+    d'importance pratique dans ce cas."""
     if tuple(current["hat"]) != tuple(baseline["hat"]):
         return ("hat", tuple(current["hat"]))
 
@@ -108,6 +114,12 @@ def detect_new_input(baseline, current, axis_threshold=0.5):
         if abs(c) > axis_threshold and abs(c - b) > axis_threshold:
             sign = 1 if c > 0 else -1
             return ("axis", (i, sign))
+
+    current_keys = current.get("keys")
+    if current_keys is not None:
+        newly_pressed = current_keys - baseline.get("keys", set())
+        if newly_pressed:
+            return ("key", min(newly_pressed))
 
     for i, (b, c) in enumerate(zip(baseline["buttons"], current["buttons"])):
         if c and not b:
@@ -120,12 +132,12 @@ def apply_detection(settings, target, is_direction, detection):
     """Applique le resultat de detect_new_input() aux parametres, pour le
     mapping interactif ("Detecter") de la fenetre de parametrage.
 
-    Pour un bouton d'action (is_direction=False), un input de type "button"
-    ou "axis" est accepte — une gachette analogique (LT/RT, souvent utilisee
-    pour Rage Art) ne remonte jamais comme un bouton digital classique. Un
-    "hat" est en revanche toujours ignore pour une action : il n'a pas de
-    sens et n'arrive que par un mouvement accidentel du D-pad pendant
-    l'attente."""
+    Pour un bouton d'action (is_direction=False), un input de type "button",
+    "axis" ou "key" est accepte — une gachette analogique (LT/RT, souvent
+    utilisee pour Rage Art) ne remonte jamais comme un bouton digital
+    classique. Un "hat" est en revanche toujours ignore pour une action :
+    il n'a pas de sens et n'arrive que par un mouvement accidentel du D-pad
+    pendant l'attente."""
     source, payload = detection
     if is_direction:
         if source == "hat":
@@ -136,9 +148,15 @@ def apply_detection(settings, target, is_direction, detection):
         elif source == "button":
             settings["direction_source"][target] = "button"
             settings["button_direction_mapping"][target] = payload
+        elif source == "key":
+            settings["direction_source"][target] = "keyboard"
+            settings["keyboard_mapping"][target] = payload
     elif source == "button":
         settings["action_source"][target] = "button"
         settings["action_buttons"][target] = payload
     elif source == "axis":
         settings["action_source"][target] = "axis"
         settings["action_axis_mapping"][target] = list(payload)
+    elif source == "key":
+        settings["action_source"][target] = "keyboard"
+        settings["action_keyboard_mapping"][target] = payload

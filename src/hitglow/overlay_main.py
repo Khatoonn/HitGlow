@@ -2,6 +2,7 @@
 lit la manette selectionnee, affiche la fenetre transparente. Lance depuis
 la fenetre de parametrage (settings_app.py) en sous-processus."""
 
+import os
 import sys
 
 import pygame
@@ -25,6 +26,10 @@ def _list_joystick_names():
 
 
 def run():
+    # SDL n'envoie les evenements manette que si la fenetre a le focus,
+    # sauf avec ce hint. Indispensable ici : le jeu (Tekken 8) ou OBS ont
+    # le focus pendant le stream, pas la fenetre HitGlow.
+    os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
     pygame.init()
     settings = settings_store.load_settings()
 
@@ -115,7 +120,8 @@ def run():
         frame = render_frame(
             settings["window_width"], settings["window_height"], glow_colors,
             layout.DIRECTION_LAYOUT, layout.ACTION_LAYOUT, layout.CIRCLE_RADIUS,
-            label_color, scale=scale, calibration_lines=calibration_lines,
+            label_color, labels=settings["labels"], font_spec=settings["font"],
+            scale=scale, calibration_lines=calibration_lines,
         )
         window.present(frame)
         clock.tick(FPS)

@@ -685,24 +685,20 @@ class ButtonGlow:
         self.off_color = off_color
         self.fade_ms = fade_ms
         self._active_color = None
-        self._release_time_ms = None
+        self._last_pressed_ms = None
 
     def update(self, is_pressed, active_color, now_ms):
         if is_pressed:
             self._active_color = active_color
-            self._release_time_ms = None
+            self._last_pressed_ms = now_ms
             return active_color
 
         if self._active_color is None:
             return self.off_color
 
-        if self._release_time_ms is None:
-            self._release_time_ms = now_ms
-
-        elapsed = now_ms - self._release_time_ms
+        elapsed = now_ms - self._last_pressed_ms
         if elapsed >= self.fade_ms:
             self._active_color = None
-            self._release_time_ms = None
             return self.off_color
 
         t = elapsed / self.fade_ms

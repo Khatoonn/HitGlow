@@ -90,7 +90,7 @@ egalement dans `config.py`, commentes, modifiables librement.
 
 ```bash
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow run_hitglow.py
+.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow --paths src run_hitglow.py
 ```
 
 L'executable est genere dans `dist/HitGlow.exe`.

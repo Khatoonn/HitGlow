@@ -1360,7 +1360,7 @@ egalement dans `config.py`, commentes, modifiables librement.
 
 ```bash
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow run_hitglow.py
+.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow --paths src run_hitglow.py
 ```
 
 L'executable est genere dans `dist/HitGlow.exe`.
@@ -1410,9 +1410,14 @@ git commit -m "docs: add complete French README"
 
 ```bash
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow run_hitglow.py
+.venv\Scripts\pyinstaller --onefile --noconsole --name HitGlow --paths src run_hitglow.py
 ```
-Expected: no build errors; `dist\HitGlow.exe` exists.
+Expected: no build errors; `dist\HitGlow.exe` exists. Note: `--paths src` is
+required — without it, PyInstaller's static analysis never finds the
+`hitglow` package (it's only added to `sys.path` at runtime by
+`run_hitglow.py`), so the built exe fails immediately with
+`ModuleNotFoundError: No module named 'hitglow'`. This was caught during
+Task 9 verification and is not optional.
 
 - [ ] **Step 2: Manual verification**
 

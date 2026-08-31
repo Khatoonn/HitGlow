@@ -16,6 +16,11 @@ DEFAULT_SETTINGS = {
     "axis_deadzone": 0.5,
     "button_direction_mapping": {"UP": None, "DOWN": None, "LEFT": None, "RIGHT": None},
     "action_buttons": {"1": None, "2": None, "3": None, "4": None, "HEAT": None, "RAGE": None},
+    "labels": {
+        "LEFT": "B", "DOWN": "D", "RIGHT": "F", "UP": "U",
+        "1": "1", "2": "2", "3": "3", "4": "4", "HEAT": "HEAT", "RAGE": "RAGE",
+    },
+    "font": {"family": None, "path": None},
     "window_width": 640,
     "window_height": 320,
     "window_pos": None,

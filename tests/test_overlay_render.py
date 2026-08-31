@@ -84,3 +84,17 @@ def test_render_frame_draws_a_lighter_highlight_above_center():
     highlight_pixel = surface.get_at((100, 100 - 12))
     assert highlight_pixel[:3] != color
     assert highlight_pixel[3] == 255
+
+
+def test_render_frame_draws_direction_labels_when_provided():
+    without_label = render_frame(
+        width=200, height=200, glow_colors={"LEFT": (0, 255, 255)},
+        direction_layout={"LEFT": (100, 100)}, action_layout={},
+        circle_radius=30, label_color=(255, 255, 255),
+    )
+    with_label = render_frame(
+        width=200, height=200, glow_colors={"LEFT": (0, 255, 255)},
+        direction_layout={"LEFT": (100, 100)}, action_layout={},
+        circle_radius=30, label_color=(255, 255, 255), labels={"LEFT": "B"},
+    )
+    assert without_label.get_at((100, 100))[:3] != with_label.get_at((100, 100))[:3]

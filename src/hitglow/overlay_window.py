@@ -53,29 +53,58 @@ class ButtonGlow:
         return lerp_color(self._active_color, self.off_color, t)
 
 
+def _build_font(font_spec, size):
+    """Construit une pygame.font.Font a partir d'une spec {"family": ..,
+    "path": ..} (voir settings_store DEFAULT_SETTINGS["font"]). path est
+    prioritaire sur family ; sans spec (ou en cas d'echec de chargement),
+    retombe sur la police par defaut de pygame."""
+    if font_spec:
+        path = font_spec.get("path")
+        if path:
+            try:
+                return pygame.font.Font(path, size)
+            except (FileNotFoundError, OSError):
+                pass
+        family = font_spec.get("family")
+        if family:
+            return pygame.font.SysFont(family, size)
+    return pygame.font.SysFont(None, size)
+
+
 def render_frame(
     width, height, glow_colors, direction_layout, action_layout,
-    circle_radius, label_color, scale=1.0, calibration_lines=None,
+    circle_radius, label_color, labels=None, font_spec=None, scale=1.0, calibration_lines=None,
 ):
-    """Construit la frame a afficher : fond transparent + ronds colores
-    (+ labels texte pour les boutons d'action) + overlay de calibration
-    optionnel. Retourne une pygame.Surface avec canal alpha."""
+    """Construit la frame a afficher : fond transparent + ronds colores +
+    labels texte (directions et actions) + overlay de calibration
+    optionnel. Retourne une pygame.Surface avec canal alpha.
+
+    labels : dict nom logique -> texte affiche (ex: {"LEFT": "B"}). Une
+    entree absente ou labels=None n'affiche aucun texte pour ce rond,
+    pour rester compatible avec les appels qui ne s'en soucient pas."""
     surface = pygame.Surface((width, height), pygame.SRCALPHA)
     surface.fill((0, 0, 0, 0))
 
-    for name, (x, y) in direction_layout.items():
-        color = glow_colors[name]
-        _draw_glossy_circle(surface, (round(x * scale), round(y * scale)), round(circle_radius * scale), color)
+    labels = labels or {}
+    font = None
+    if direction_layout or action_layout:
+        font = _build_font(font_spec, max(1, round(20 * scale)))
 
-    if action_layout:
-        font = pygame.font.SysFont(None, max(1, round(20 * scale)))
-        for name, (x, y) in action_layout.items():
-            color = glow_colors[name]
-            cx, cy = round(x * scale), round(y * scale)
-            radius = round(circle_radius * scale)
-            _draw_glossy_circle(surface, (cx, cy), radius, color)
-            label = font.render(name, False, label_color).convert_alpha()
+    def _draw(name, x, y):
+        color = glow_colors[name]
+        cx, cy = round(x * scale), round(y * scale)
+        radius = round(circle_radius * scale)
+        _draw_glossy_circle(surface, (cx, cy), radius, color)
+        text = labels.get(name, "")
+        if text:
+            label = font.render(text, False, label_color).convert_alpha()
             surface.blit(label, label.get_rect(center=(cx, cy)))
+
+    for name, (x, y) in direction_layout.items():
+        _draw(name, x, y)
+
+    for name, (x, y) in action_layout.items():
+        _draw(name, x, y)
 
     if calibration_lines:
         _draw_calibration_overlay(surface, calibration_lines)

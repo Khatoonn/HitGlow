@@ -51,14 +51,14 @@ def test_status_text_action_mapped_via_axis():
 def test_status_text_direction_mapped_via_keyboard():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
     settings["direction_source"]["LEFT"] = "keyboard"
-    settings["keyboard_mapping"]["LEFT"] = 97  # pygame.K_a
+    settings["keyboard_mapping"]["LEFT"] = 0x41  # VK_A
     assert _mapping_status_text(settings, "LEFT", True) == "Touche A"
 
 
 def test_status_text_action_mapped_via_keyboard():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
     settings["action_source"]["HEAT"] = "keyboard"
-    settings["action_keyboard_mapping"]["HEAT"] = 104  # pygame.K_h
+    settings["action_keyboard_mapping"]["HEAT"] = 0x48  # VK_H
     assert _mapping_status_text(settings, "HEAT", False) == "Touche H"
 
 

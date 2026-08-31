@@ -101,16 +101,16 @@ def test_detect_new_input_ignores_keys_when_not_provided():
 
 def test_apply_detection_key_to_direction():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
-    apply_detection(settings, "UP", True, ("key", 119))  # pygame.K_w
+    apply_detection(settings, "UP", True, ("key", 0x57))  # VK_W
     assert settings["direction_source"]["UP"] == "keyboard"
-    assert settings["keyboard_mapping"]["UP"] == 119
+    assert settings["keyboard_mapping"]["UP"] == 0x57
 
 
 def test_apply_detection_key_to_action():
     settings = copy.deepcopy(DEFAULT_SETTINGS)
-    apply_detection(settings, "HEAT", False, ("key", 104))  # pygame.K_h
+    apply_detection(settings, "HEAT", False, ("key", 0x48))  # VK_H
     assert settings["action_source"]["HEAT"] == "keyboard"
-    assert settings["action_keyboard_mapping"]["HEAT"] == 104
+    assert settings["action_keyboard_mapping"]["HEAT"] == 0x48
 
 
 def test_apply_detection_hat_to_direction():

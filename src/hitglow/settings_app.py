@@ -15,7 +15,7 @@ import customtkinter as ctk
 import pygame
 
 from hitglow import layout, settings_store
-from hitglow.input_reader import JoystickReader, poll_keyboard, resolve_action_buttons, resolve_directions
+from hitglow.input_reader import JoystickReader, key_name, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import build_glows, render_frame
 
 DIRECTION_LABELS = {"LEFT": "Gauche", "DOWN": "Bas", "RIGHT": "Droite", "UP": "Haut"}
@@ -67,7 +67,7 @@ def _key_display_name(key_code):
     if key_code is None:
         return "Touche (?)"
     try:
-        return f"Touche {pygame.key.name(key_code).upper()}"
+        return f"Touche {key_name(key_code).upper()}"
     except Exception:
         return "Touche (?)"
 

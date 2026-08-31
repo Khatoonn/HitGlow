@@ -1,7 +1,14 @@
 """Lecture des inputs manette : fonctions pures de resolution du mapping,
-et polling brut via pygame.joystick."""
+polling brut via pygame.joystick, et lecture clavier globale via Win32."""
+
+import ctypes
 
 import pygame
+
+_user32 = ctypes.windll.user32
+# Exclut les codes de boutons souris (1-6) pour qu'un simple clic sur
+# "Detecter" ne se detecte pas lui-meme comme un input clavier.
+_KEYBOARD_VK_RANGE = range(8, 255)
 
 
 def resolve_directions(
@@ -83,10 +90,20 @@ def resolve_action_buttons(
 
 
 def poll_keyboard():
-    """Retourne l'ensemble des codes de touches (pygame.K_*) actuellement
-    enfoncees."""
-    pygame.event.pump()
-    return {code for code, is_down in enumerate(pygame.key.get_pressed()) if is_down}
+    """Retourne l'ensemble des codes de touche (Virtual-Key Windows)
+    actuellement enfoncees, au niveau global (GetAsyncKeyState) — pas
+    seulement quand une fenetre HitGlow a le focus. Indispensable : le
+    jeu (Tekken 8) ou OBS ont le focus pendant le stream, pas HitGlow, et
+    pygame.key.get_pressed() ne remonte que l'etat de la fenetre active."""
+    return {vk for vk in _KEYBOARD_VK_RANGE if _user32.GetAsyncKeyState(vk) & 0x8000}
+
+
+def key_name(vk_code):
+    """Nom lisible d'une touche a partir de son code Virtual-Key Windows."""
+    scan_code = _user32.MapVirtualKeyW(vk_code, 0)
+    buf = ctypes.create_unicode_buffer(32)
+    length = _user32.GetKeyNameTextW(scan_code << 16, buf, 32)
+    return buf.value if length > 0 else f"VK{vk_code}"
 
 
 class JoystickReader:

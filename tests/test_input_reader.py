@@ -75,12 +75,12 @@ def test_resolve_action_buttons_defaults_missing_source_to_button():
 
 def test_resolve_directions_keyboard_source():
     source = {**NO_SOURCE, "LEFT": "keyboard"}
-    keyboard_mapping = {**NO_SOURCE, "LEFT": 97}  # pygame.K_a
+    keyboard_mapping = {**NO_SOURCE, "LEFT": 0x41}  # VK_A
     pressed = resolve_directions(
         hat_value=(0, 0), axis_values=[], button_states=[],
         direction_source=source, axis_mapping=NO_SOURCE,
         axis_deadzone=0.5, button_direction_mapping=NO_SOURCE,
-        keyboard_keys={97}, keyboard_mapping=keyboard_mapping,
+        keyboard_keys={0x41}, keyboard_mapping=keyboard_mapping,
     )
     assert pressed["LEFT"] is True
 
@@ -96,10 +96,10 @@ def test_resolve_directions_keyboard_source():
 def test_resolve_action_buttons_keyboard_source():
     action_buttons = {"HEAT": None}
     action_source = {"HEAT": "keyboard"}
-    action_keyboard_mapping = {"HEAT": 104}  # pygame.K_h
+    action_keyboard_mapping = {"HEAT": 0x48}  # VK_H
     result = resolve_action_buttons(
         axis_values=[], button_states=[], action_buttons=action_buttons,
-        action_source=action_source, keyboard_keys={104}, action_keyboard_mapping=action_keyboard_mapping,
+        action_source=action_source, keyboard_keys={0x48}, action_keyboard_mapping=action_keyboard_mapping,
     )
     assert result == {"HEAT": True}
 

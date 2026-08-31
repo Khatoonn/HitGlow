@@ -135,10 +135,16 @@ class SettingsApp:
 
         content = ctk.CTkFrame(self.root, fg_color="transparent")
         content.pack(fill="both", expand=True, padx=16, pady=16)
+
+        # Le panneau d'apercu (largeur fixe, side="right") doit etre empaquete
+        # AVANT le panneau gauche (fill="both", expand=True) : sinon ce dernier
+        # reclame toute la cavite disponible en premier et ne laisse plus de
+        # place au panneau de droite, quelle que soit sa taille demandee.
+        self._build_preview_section(content)
+
         left = ctk.CTkFrame(content, fg_color="transparent")
         left.pack(side="left", fill="both", expand=True)
 
-        self._build_preview_section(content)
         self._build_joystick_section(left)
         self._build_footer(left)
         self._build_tabs(left)

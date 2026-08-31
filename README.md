@@ -5,8 +5,7 @@ leverless (Haute42 sous GP2040-CE, vue comme un pad standard) — pense pour
 le stream Tekken 8 capture avec OBS. Fenetre de parametrage graphique
 integree : aucun fichier a editer a la main.
 
-![Apercu de HitGlow](docs/screenshot-placeholder.png)
-<!-- TODO: remplacer par une vraie capture ou un GIF de l'overlay + de la fenetre de parametrage -->
+![Apercu de l'overlay HitGlow, transparent, en conditions reelles](docs/screenshot.png)
 
 ## Fonctionnalites
 
@@ -47,9 +46,14 @@ integree : aucun fichier a editer a la main.
 
 ### Option 1 — Installeur (recommande)
 
-Telecharge `HitGlow-Setup.exe` depuis les [releases GitHub](https://github.com/Khatoonn/HitGlow/releases)
+Telecharge **[HitGlow-Setup.exe](https://github.com/Khatoonn/HitGlow/releases/latest/download/HitGlow-Setup.exe)**
 et lance-le. Installation par utilisateur, sans droits administrateur,
 avec raccourci menu Demarrer et desinstalleur.
+
+Une version portable (sans installation) est aussi disponible :
+**[HitGlow.exe](https://github.com/Khatoonn/HitGlow/releases/latest/download/HitGlow.exe)**.
+
+Toutes les versions : [releases GitHub](https://github.com/Khatoonn/HitGlow/releases).
 
 ### Option 2 — Depuis les sources
 

@@ -849,6 +849,49 @@ user32.UpdateLayeredWindow.argtypes = [
 ]
 user32.UpdateLayeredWindow.restype = wintypes.BOOL
 
+# Tous les handles/pointeurs Win32 ci-dessous peuvent depasser la plage
+# d'un int C 32 bits sur un process 64 bits (ex: adresse d'un objet GDI).
+# Sans argtypes explicites, ctypes convertit par defaut en c_int et leve
+# "OverflowError: int too long to convert" des que la valeur est trop
+# grande — d'ou la declaration systematique ci-dessous.
+HGDIOBJ = wintypes.HANDLE
+
+user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.GetWindowLongW.restype = ctypes.c_long
+
+user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+user32.SetWindowLongW.restype = ctypes.c_long
+
+user32.SetWindowPos.argtypes = [
+    wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+    ctypes.c_int, ctypes.c_int, wintypes.UINT,
+]
+user32.SetWindowPos.restype = wintypes.BOOL
+
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.GetWindowRect.restype = wintypes.BOOL
+
+user32.GetCursorPos.argtypes = [ctypes.POINTER(POINT)]
+user32.GetCursorPos.restype = wintypes.BOOL
+
+user32.GetDC.argtypes = [wintypes.HWND]
+user32.GetDC.restype = wintypes.HDC
+
+user32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
+user32.ReleaseDC.restype = ctypes.c_int
+
+gdi32.CreateCompatibleDC.argtypes = [wintypes.HDC]
+gdi32.CreateCompatibleDC.restype = wintypes.HDC
+
+gdi32.SelectObject.argtypes = [wintypes.HDC, HGDIOBJ]
+gdi32.SelectObject.restype = HGDIOBJ
+
+gdi32.DeleteObject.argtypes = [HGDIOBJ]
+gdi32.DeleteObject.restype = wintypes.BOOL
+
+gdi32.DeleteDC.argtypes = [wintypes.HDC]
+gdi32.DeleteDC.restype = wintypes.BOOL
+
 
 def get_cursor_pos():
     """Position du curseur en coordonnees ecran (pas coordonnees fenetre)."""

@@ -65,7 +65,7 @@ def render_frame(
 
     for name, (x, y) in direction_layout.items():
         color = glow_colors[name]
-        pygame.draw.circle(surface, color, (round(x * scale), round(y * scale)), round(circle_radius * scale))
+        _draw_glossy_circle(surface, (round(x * scale), round(y * scale)), round(circle_radius * scale), color)
 
     if action_layout:
         font = pygame.font.SysFont(None, max(1, round(20 * scale)))
@@ -73,7 +73,7 @@ def render_frame(
             color = glow_colors[name]
             cx, cy = round(x * scale), round(y * scale)
             radius = round(circle_radius * scale)
-            pygame.draw.circle(surface, color, (cx, cy), radius)
+            _draw_glossy_circle(surface, (cx, cy), radius, color)
             label = font.render(name, False, label_color).convert_alpha()
             surface.blit(label, label.get_rect(center=(cx, cy)))
 
@@ -81,6 +81,37 @@ def render_frame(
         _draw_calibration_overlay(surface, calibration_lines)
 
     return surface
+
+
+def _lighten(color, amount):
+    return tuple(min(255, channel + amount) for channel in color)
+
+
+def _draw_glossy_circle(surface, center, radius, color):
+    """Rond 'glossy' (liseret fin + bezel sombre + reflet) : gloss discret
+    inspire des overlays de manette modernes (ex: Trailpad), avec un
+    liseret net qui rappelle les panneaux HUD de Tekken, sans surcharger.
+    Reste 100% opaque (alpha 255 partout) pour respecter la contrainte
+    alpha binaire du module."""
+    cx, cy = center
+    if radius <= 0:
+        return
+
+    outline_color = (95, 95, 100)
+    bezel_thickness = max(2, radius // 6)
+    bezel_color = (18, 18, 18)
+    pygame.draw.circle(surface, outline_color, (cx, cy), radius)
+    pygame.draw.circle(surface, bezel_color, (cx, cy), max(1, radius - 1))
+
+    inner_radius = max(1, radius - bezel_thickness)
+    pygame.draw.circle(surface, color, (cx, cy), inner_radius)
+
+    highlight_color = _lighten(color, 90)
+    hi_width = max(1, round(inner_radius * 1.1))
+    hi_height = max(1, round(inner_radius * 0.55))
+    hi_rect = pygame.Rect(0, 0, hi_width, hi_height)
+    hi_rect.center = (cx, cy - round(inner_radius * 0.45))
+    pygame.draw.ellipse(surface, highlight_color, hi_rect)
 
 
 def _draw_calibration_overlay(surface, lines):

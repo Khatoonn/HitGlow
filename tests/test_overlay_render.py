@@ -59,3 +59,28 @@ def test_render_frame_leaves_background_fully_transparent():
         circle_radius=10, label_color=(255, 255, 255),
     )
     assert surface.get_at((0, 0))[3] == 0
+
+
+def test_render_frame_draws_a_dark_bezel_at_the_circle_edge():
+    color = (0, 255, 255)
+    surface = render_frame(
+        width=200, height=200, glow_colors={"LEFT": color},
+        direction_layout={"LEFT": (100, 100)}, action_layout={},
+        circle_radius=30, label_color=(255, 255, 255),
+    )
+    edge_pixel = surface.get_at((100, 100 - 29))
+    assert edge_pixel[:3] != color
+    assert edge_pixel[3] == 255
+    assert sum(edge_pixel[:3]) < sum(color)
+
+
+def test_render_frame_draws_a_lighter_highlight_above_center():
+    color = (0, 255, 255)
+    surface = render_frame(
+        width=200, height=200, glow_colors={"LEFT": color},
+        direction_layout={"LEFT": (100, 100)}, action_layout={},
+        circle_radius=30, label_color=(255, 255, 255),
+    )
+    highlight_pixel = surface.get_at((100, 100 - 12))
+    assert highlight_pixel[:3] != color
+    assert highlight_pixel[3] == 255

@@ -105,3 +105,25 @@ def detect_new_input(baseline, current, axis_threshold=0.5):
             return ("button", i)
 
     return None
+
+
+def apply_detection(settings, target, is_direction, detection):
+    """Applique le resultat de detect_new_input() aux parametres, pour le
+    mapping interactif ("Detecter") de la fenetre de parametrage.
+
+    Pour un bouton d'action (is_direction=False), seul un input de type
+    "button" est accepte : un hat/axe ignore accidentellement pendant
+    l'attente (drift de stick, etc.) ne doit pas produire un mapping
+    incorrect."""
+    source, payload = detection
+    if is_direction:
+        if source == "hat":
+            settings["direction_source"][target] = "hat"
+        elif source == "axis":
+            settings["direction_source"][target] = "axis"
+            settings["axis_mapping"][target] = list(payload)
+        elif source == "button":
+            settings["direction_source"][target] = "button"
+            settings["button_direction_mapping"][target] = payload
+    elif source == "button":
+        settings["action_buttons"][target] = payload

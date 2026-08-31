@@ -1,7 +1,10 @@
 import json
 
+import copy
+
 from hitglow.settings_store import (
     DEFAULT_SETTINGS,
+    apply_detection,
     detect_new_input,
     load_settings,
     resolve_joystick_index,
@@ -82,3 +85,36 @@ def test_detect_new_input_ignores_small_axis_jitter():
     baseline = {"hat": (0, 0), "axes": [0.02], "buttons": []}
     current = {"hat": (0, 0), "axes": [0.06], "buttons": []}
     assert detect_new_input(baseline, current) is None
+
+
+def test_apply_detection_hat_to_direction():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "LEFT", True, ("hat", (-1, 0)))
+    assert settings["direction_source"]["LEFT"] == "hat"
+
+
+def test_apply_detection_axis_to_direction():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "UP", True, ("axis", (1, -1)))
+    assert settings["direction_source"]["UP"] == "axis"
+    assert settings["axis_mapping"]["UP"] == [1, -1]
+
+
+def test_apply_detection_button_to_direction():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "DOWN", True, ("button", 7))
+    assert settings["direction_source"]["DOWN"] == "button"
+    assert settings["button_direction_mapping"]["DOWN"] == 7
+
+
+def test_apply_detection_button_to_action():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "HEAT", False, ("button", 4))
+    assert settings["action_buttons"]["HEAT"] == 4
+
+
+def test_apply_detection_ignores_hat_and_axis_for_action_buttons():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    apply_detection(settings, "RAGE", False, ("hat", (1, 0)))
+    apply_detection(settings, "RAGE", False, ("axis", (0, 1)))
+    assert settings["action_buttons"]["RAGE"] is None

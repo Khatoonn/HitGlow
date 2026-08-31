@@ -10,7 +10,7 @@ import pygame
 from hitglow import layout, settings_store
 from hitglow.calibration import format_calibration_lines
 from hitglow.input_reader import JoystickReader, resolve_action_buttons, resolve_directions
-from hitglow.overlay_window import ButtonGlow, OverlayWindow, get_cursor_pos, render_frame
+from hitglow.overlay_window import OverlayWindow, build_glows, get_cursor_pos, render_frame
 
 FPS = 60
 SCALE_STEP = 0.05
@@ -65,10 +65,9 @@ def run():
     def _row_color(name):
         return row_top_color if name in layout.ACTION_ROW_TOP else row_bottom_color
 
-    glows = {name: ButtonGlow(direction_color, fade_ms) for name in layout.DIRECTION_LAYOUT}
+    glows = build_glows(off_color, fade_ms, layout.DIRECTION_LAYOUT, layout.ACTION_LAYOUT)
     active_colors = {name: direction_color for name in layout.DIRECTION_LAYOUT}
     for name in layout.ACTION_LAYOUT:
-        glows[name] = ButtonGlow(off_color, fade_ms)
         active_colors[name] = _row_color(name)
 
     scale = settings["scale"]

@@ -16,7 +16,7 @@ import pygame
 
 from hitglow import layout, settings_store
 from hitglow.input_reader import JoystickReader, resolve_action_buttons, resolve_directions
-from hitglow.overlay_window import ButtonGlow, render_frame
+from hitglow.overlay_window import build_glows, render_frame
 
 DIRECTION_LABELS = {"LEFT": "Gauche", "DOWN": "Bas", "RIGHT": "Droite", "UP": "Haut"}
 ACTION_NAMES = ["1", "2", "3", "4", "HEAT", "RAGE"]
@@ -494,11 +494,8 @@ class SettingsApp:
     # ----------------------------------------------------------- preview
     def _rebuild_glow_states(self):
         off_color = tuple(self.settings["colors"]["off"])
-        direction_color = tuple(self.settings["colors"]["direction"])
         fade_ms = self.settings["fade_ms"]
-        self.glows = {name: ButtonGlow(direction_color, fade_ms) for name in layout.DIRECTION_LAYOUT}
-        for name in layout.ACTION_LAYOUT:
-            self.glows[name] = ButtonGlow(off_color, fade_ms)
+        self.glows = build_glows(off_color, fade_ms, layout.DIRECTION_LAYOUT, layout.ACTION_LAYOUT)
 
     def _active_colors(self):
         colors = self.settings["colors"]
@@ -519,7 +516,11 @@ class SettingsApp:
             anchor="w", padx=16, pady=(16, 8),
         )
 
-        preview_wrap = ctk.CTkFrame(card, fg_color=_hex(PREVIEW_BG), corner_radius=12)
+        # Un tk.Frame classique (pas CTkFrame) : CTkFrame dessine son fond
+        # via un canvas interne qui peut passer au-dessus d'un widget enfant
+        # non-CTk comme ce Label, le rendant invisible malgre un placement
+        # geometriquement correct.
+        preview_wrap = tk.Frame(card, bg=_hex(PREVIEW_BG))
         preview_wrap.pack(padx=16)
         self.preview_label = tk.Label(preview_wrap, bg=_hex(PREVIEW_BG), bd=0, highlightthickness=0)
         self.preview_label.pack(padx=8, pady=8)

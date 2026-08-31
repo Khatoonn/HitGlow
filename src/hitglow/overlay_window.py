@@ -71,6 +71,16 @@ def _build_font(font_spec, size):
     return pygame.font.SysFont(None, size)
 
 
+def build_glows(off_color, fade_ms, direction_names, action_names):
+    """Construit un ButtonGlow par input (directions + actions), tous
+    initialises avec off_color comme couleur eteinte — la couleur active
+    est fournie separement a chaque appel de ButtonGlow.update(). Centralise
+    ce cablage pour eviter de le dupliquer (et de le desynchroniser) entre
+    l'overlay et l'apercu de la fenetre de parametrage."""
+    names = list(direction_names) + list(action_names)
+    return {name: ButtonGlow(off_color, fade_ms) for name in names}
+
+
 def render_frame(
     width, height, glow_colors, direction_layout, action_layout,
     circle_radius, label_color, labels=None, font_spec=None, scale=1.0, calibration_lines=None,

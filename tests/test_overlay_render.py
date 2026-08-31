@@ -1,7 +1,7 @@
 import pygame
 import pytest
 
-from hitglow.overlay_window import ButtonGlow, lerp_color, render_frame
+from hitglow.overlay_window import ButtonGlow, build_glows, lerp_color, render_frame
 
 pygame.font.init()
 
@@ -84,6 +84,18 @@ def test_render_frame_draws_a_lighter_highlight_above_center():
     highlight_pixel = surface.get_at((100, 100 - 12))
     assert highlight_pixel[:3] != color
     assert highlight_pixel[3] == 255
+
+
+def test_build_glows_uses_off_color_for_every_input_when_never_pressed():
+    # Regression : un ButtonGlow doit toujours demarrer avec off_color comme
+    # couleur d'extinction, quel que soit son type (direction ou action) —
+    # jamais la couleur active, sinon l'input reste "allume" en permanence
+    # meme sans etre presse.
+    off_color = (40, 40, 40)
+    glows = build_glows(off_color, fade_ms=150, direction_names=["LEFT", "UP"], action_names=["1", "HEAT"])
+    assert set(glows) == {"LEFT", "UP", "1", "HEAT"}
+    for name, glow in glows.items():
+        assert glow.update(is_pressed=False, active_color=(0, 255, 255), now_ms=0) == off_color
 
 
 def test_render_frame_draws_direction_labels_when_provided():

@@ -97,7 +97,9 @@ def render_frame(
         _draw_glossy_circle(surface, (cx, cy), radius, color)
         text = labels.get(name, "")
         if text:
-            label = font.render(text, False, label_color).convert_alpha()
+            label = font.render(text, False, label_color)
+            if pygame.display.get_init() and pygame.display.get_surface() is not None:
+                label = label.convert_alpha()
             surface.blit(label, label.get_rect(center=(cx, cy)))
 
     for name, (x, y) in direction_layout.items():
@@ -152,8 +154,11 @@ def _draw_calibration_overlay(surface, lines):
     panel_width = 360
     panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
     panel.fill((10, 10, 10, 255))
+    has_display = pygame.display.get_init() and pygame.display.get_surface() is not None
     for i, line in enumerate(lines):
-        text = font.render(line, False, (255, 255, 255)).convert_alpha()
+        text = font.render(line, False, (255, 255, 255))
+        if has_display:
+            text = text.convert_alpha()
         panel.blit(text, (8, 8 + i * line_height))
     surface.blit(panel, (0, 0))
 

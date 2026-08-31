@@ -15,11 +15,13 @@ import customtkinter as ctk
 import pygame
 
 from hitglow import layout, settings_store
-from hitglow.input_reader import JoystickReader, resolve_action_buttons, resolve_directions
+from hitglow.input_reader import JoystickReader, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import build_glows, render_frame
 
 DIRECTION_LABELS = {"LEFT": "Gauche", "DOWN": "Bas", "RIGHT": "Droite", "UP": "Haut"}
 ACTION_NAMES = ["1", "2", "3", "4", "HEAT", "RAGE"]
+
+KEYBOARD_DEVICE_NAME = "Clavier"
 
 DETECT_TIMEOUT_MS = 6000
 POLL_INTERVAL_MS = 30
@@ -61,6 +63,15 @@ en ciblant cette couleur.
 """
 
 
+def _key_display_name(key_code):
+    if key_code is None:
+        return "Touche (?)"
+    try:
+        return f"Touche {pygame.key.name(key_code).upper()}"
+    except Exception:
+        return "Touche (?)"
+
+
 def _mapping_status_text(settings, name, is_direction):
     if is_direction:
         source = settings["direction_source"].get(name)
@@ -75,6 +86,8 @@ def _mapping_status_text(settings, name, is_direction):
         if source == "button":
             index = settings["button_direction_mapping"].get(name)
             return f"Bouton {index}" if index is not None else "Bouton (?)"
+        if source == "keyboard":
+            return _key_display_name(settings["keyboard_mapping"].get(name))
         return "Non mappe"
 
     action_source = settings["action_source"].get(name)
@@ -84,6 +97,8 @@ def _mapping_status_text(settings, name, is_direction):
             sign = "+" if mapping[1] > 0 else "-"
             return f"Axe {mapping[0]} ({sign})"
         return "Axe (?)"
+    if action_source == "keyboard":
+        return _key_display_name(settings["action_keyboard_mapping"].get(name))
     index = settings["action_buttons"].get(name)
     return f"Bouton {index}" if index is not None else "Non mappe"
 
@@ -122,6 +137,7 @@ class SettingsApp:
         self.settings = settings_store.load_settings()
         self.joystick_names = []
         self.joystick_reader = None
+        self.use_keyboard_device = False
         self.overlay_process = None
         self.detect_target = None
         self.detect_baseline = None
@@ -175,9 +191,9 @@ class SettingsApp:
         inner.pack(fill="x", padx=16, pady=14)
 
         ctk.CTkLabel(inner, text="Manette", text_color=TEXT, font=("Segoe UI", 13, "bold")).pack(side="left")
-        self.joystick_var = tk.StringVar(value="(aucune manette detectee)")
+        self.joystick_var = tk.StringVar(value=KEYBOARD_DEVICE_NAME)
         self.joystick_menu = ctk.CTkOptionMenu(
-            inner, values=["(aucune manette detectee)"], variable=self.joystick_var,
+            inner, values=[KEYBOARD_DEVICE_NAME], variable=self.joystick_var,
             command=self._on_joystick_selected, width=280, fg_color=CARD, button_color=BORDER,
             button_hover_color=BORDER, text_color=TEXT, dropdown_fg_color=CARD, dropdown_text_color=TEXT,
         )
@@ -191,8 +207,13 @@ class SettingsApp:
         pygame.joystick.quit()
         pygame.joystick.init()
         self.joystick_names = [pygame.joystick.Joystick(i).get_name() for i in range(pygame.joystick.get_count())]
-        values = self.joystick_names or ["(aucune manette detectee)"]
-        self.joystick_menu.configure(values=values)
+        self.joystick_menu.configure(values=[KEYBOARD_DEVICE_NAME] + self.joystick_names)
+
+        if self.settings["joystick_name"] == KEYBOARD_DEVICE_NAME:
+            self.joystick_var.set(KEYBOARD_DEVICE_NAME)
+            self._select_keyboard_device()
+            return
+
         index = settings_store.resolve_joystick_index(
             self.joystick_names, self.settings["joystick_name"], self.settings["joystick_index"],
         )
@@ -200,10 +221,15 @@ class SettingsApp:
             self.joystick_var.set(self.joystick_names[index])
             self._open_joystick(index)
         else:
-            self.joystick_var.set("(aucune manette detectee)")
-            self.joystick_reader = None
+            self.joystick_var.set(KEYBOARD_DEVICE_NAME)
+            self._select_keyboard_device()
 
     def _on_joystick_selected(self, value):
+        if value == KEYBOARD_DEVICE_NAME:
+            self.settings["joystick_name"] = KEYBOARD_DEVICE_NAME
+            settings_store.save_settings(self.settings)
+            self._select_keyboard_device()
+            return
         if value not in self.joystick_names:
             return
         index = self.joystick_names.index(value)
@@ -212,7 +238,12 @@ class SettingsApp:
         settings_store.save_settings(self.settings)
         self._open_joystick(index)
 
+    def _select_keyboard_device(self):
+        self.use_keyboard_device = True
+        self.joystick_reader = None
+
     def _open_joystick(self, index):
+        self.use_keyboard_device = False
         try:
             self.joystick_reader = JoystickReader(index)
         except RuntimeError:
@@ -291,14 +322,21 @@ class SettingsApp:
         for name, label in self.action_rows.items():
             label.configure(text=_mapping_status_text(self.settings, name, False))
 
+    def _poll_detect_state(self):
+        """Etat brut courant selon le peripherique actif (manette ou
+        clavier) pour la detection interactive ("Detecter")."""
+        if self.use_keyboard_device:
+            return {"hat": (0, 0), "axes": [], "buttons": [], "keys": poll_keyboard()}
+        hat, axes, buttons = self.joystick_reader.poll(self.settings["hat_index"])
+        return {"hat": hat, "axes": axes, "buttons": buttons, "keys": set()}
+
     def _start_detect(self, target, is_direction, button, status_label):
-        if self.joystick_reader is None:
+        if not self.use_keyboard_device and self.joystick_reader is None:
             self.status_var.set("Selectionne une manette avant de mapper.")
             return
         if self.detect_target is not None:
             return
-        hat, axes, buttons = self.joystick_reader.poll(self.settings["hat_index"])
-        self.detect_baseline = {"hat": hat, "axes": axes, "buttons": buttons}
+        self.detect_baseline = self._poll_detect_state()
         self.detect_target = (target, is_direction, button, status_label)
         self.detect_deadline = self.root.after(DETECT_TIMEOUT_MS, self._cancel_detect)
         button.configure(text="Appuie...")
@@ -309,10 +347,9 @@ class SettingsApp:
         if self.detect_target is None:
             return
         target, is_direction, button, status_label = self.detect_target
-        hat, axes, buttons = self.joystick_reader.poll(self.settings["hat_index"])
-        current = {"hat": hat, "axes": axes, "buttons": buttons}
+        current = self._poll_detect_state()
         result = settings_store.detect_new_input(self.detect_baseline, current)
-        if result is not None and (is_direction or result[0] in ("button", "axis")):
+        if result is not None and (is_direction or result[0] in ("button", "axis", "key")):
             settings_store.apply_detection(self.settings, target, is_direction, result)
             settings_store.save_settings(self.settings)
             status_label.configure(text=_mapping_status_text(self.settings, target, is_direction))
@@ -550,16 +587,26 @@ class SettingsApp:
         else:
             hat, axes, buttons = (0, 0), [], []
             if hasattr(self, "joystick_status_label"):
-                self.joystick_status_label.configure(text="Aucune manette connectee.")
+                if self.use_keyboard_device:
+                    self.joystick_status_label.configure(text="Peripherique : Clavier")
+                else:
+                    self.joystick_status_label.configure(text="Aucune manette connectee.")
+
+        # Le clavier est toujours lu, meme quand une manette est le
+        # peripherique actif : les deux sources peuvent coexister (ex:
+        # directions a la manette, une action au clavier).
+        keyboard_keys = poll_keyboard()
 
         directions = resolve_directions(
             hat, axes, buttons,
             self.settings["direction_source"], self.settings["axis_mapping"], self.settings["axis_deadzone"],
             self.settings["button_direction_mapping"],
+            keyboard_keys, self.settings["keyboard_mapping"],
         )
         actions = resolve_action_buttons(
             axes, buttons, self.settings["action_buttons"],
             self.settings["action_source"], self.settings["action_axis_mapping"], self.settings["axis_deadzone"],
+            keyboard_keys, self.settings["action_keyboard_mapping"],
         )
         pressed = {**directions, **actions}
 

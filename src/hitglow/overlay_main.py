@@ -9,7 +9,7 @@ import pygame
 
 from hitglow import layout, settings_store
 from hitglow.calibration import format_calibration_lines
-from hitglow.input_reader import JoystickReader, resolve_action_buttons, resolve_directions
+from hitglow.input_reader import JoystickReader, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import OverlayWindow, build_glows, get_cursor_pos, render_frame
 
 FPS = 60
@@ -37,15 +37,17 @@ def run():
     index = settings_store.resolve_joystick_index(
         available_names, settings["joystick_name"], settings["joystick_index"],
     )
-    if index is None:
-        print("Aucune manette detectee. Branche ta manette puis relance l'overlay.", file=sys.stderr)
-        pygame.quit()
-        sys.exit(1)
-
-    joystick = JoystickReader(index)
-    settings["joystick_name"] = available_names[index]
-    settings["joystick_index"] = index
-    settings_store.save_settings(settings)
+    joystick = None
+    if index is not None:
+        joystick = JoystickReader(index)
+        settings["joystick_name"] = available_names[index]
+        settings["joystick_index"] = index
+        settings_store.save_settings(settings)
+    else:
+        print(
+            "Aucune manette detectee — seuls les inputs mappes au clavier fonctionneront.",
+            file=sys.stderr,
+        )
 
     window = OverlayWindow(
         settings["window_width"], settings["window_height"],
@@ -97,15 +99,22 @@ def run():
                 scale += event.y * SCALE_STEP
                 scale = max(MIN_SCALE, min(MAX_SCALE, scale))
 
-        hat, axes, buttons = joystick.poll(settings["hat_index"])
+        if joystick is not None:
+            hat, axes, buttons = joystick.poll(settings["hat_index"])
+        else:
+            hat, axes, buttons = (0, 0), [], []
+        keyboard_keys = poll_keyboard()
+
         directions = resolve_directions(
             hat, axes, buttons,
             settings["direction_source"], settings["axis_mapping"], settings["axis_deadzone"],
             settings["button_direction_mapping"],
+            keyboard_keys, settings["keyboard_mapping"],
         )
         actions = resolve_action_buttons(
             axes, buttons, settings["action_buttons"],
             settings["action_source"], settings["action_axis_mapping"], settings["axis_deadzone"],
+            keyboard_keys, settings["action_keyboard_mapping"],
         )
         pressed = {**directions, **actions}
 

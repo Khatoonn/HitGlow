@@ -48,6 +48,20 @@ def test_status_text_action_mapped_via_axis():
     assert _mapping_status_text(settings, "RAGE", False) == "Axe 5 (+)"
 
 
+def test_status_text_direction_mapped_via_keyboard():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    settings["direction_source"]["LEFT"] = "keyboard"
+    settings["keyboard_mapping"]["LEFT"] = 97  # pygame.K_a
+    assert _mapping_status_text(settings, "LEFT", True) == "Touche A"
+
+
+def test_status_text_action_mapped_via_keyboard():
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    settings["action_source"]["HEAT"] = "keyboard"
+    settings["action_keyboard_mapping"]["HEAT"] = 104  # pygame.K_h
+    assert _mapping_status_text(settings, "HEAT", False) == "Touche H"
+
+
 def test_hex_roundtrip():
     assert _hex([255, 0, 128]) == "#ff0080"
     assert _hex_to_rgb("#ff0080") == [255, 0, 128]

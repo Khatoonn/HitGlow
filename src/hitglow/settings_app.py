@@ -7,6 +7,7 @@ import ctypes
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 from ctypes import wintypes
 import tkinter as tk
@@ -172,6 +173,8 @@ class SettingsApp:
         self.active_trainer_combo_id = None
         self.combos = combo_store.load_combos()
         self.combo_rows = {}
+        self.combo_game_expanded = {}
+        self.combo_char_expanded = {}
         self.detect_target = None
         self.detect_baseline = None
         self.detect_deadline = None
@@ -647,26 +650,61 @@ class SettingsApp:
         trainer_alive = self.trainer_process is not None and self.trainer_process.poll() is None
         active_id = self.active_trainer_combo_id if trainer_alive else None
 
+        games = {}
         for (game, character), group in combo_store.grouped_by_game_and_character(self.combos):
-            ctk.CTkLabel(
-                self.combos_list_frame, text=f"{game} — {character}", text_color=TEXT,
-                font=("Segoe UI", 12, "bold"),
-            ).pack(anchor="w", pady=(10, 2))
-            for combo in group:
-                row = ctk.CTkFrame(self.combos_list_frame, fg_color="transparent")
-                row.pack(fill="x", pady=2, padx=(12, 0))
-                ctk.CTkLabel(row, text=combo["name"], text_color=TEXT, width=220, anchor="w").pack(side="left")
-                is_active = combo["id"] == active_id
+            games.setdefault(game, []).append((character, group))
+
+        for game, characters in games.items():
+            game_expanded = self.combo_game_expanded.get(game, True)
+            total_combos = sum(len(group) for _, group in characters)
+            ctk.CTkButton(
+                self.combos_list_frame,
+                text=f"{'▾' if game_expanded else '▸'}  {game}  ({total_combos})",
+                anchor="w", height=34, fg_color=CARD, hover_color=BG, text_color=TEXT,
+                border_width=1, border_color=BORDER, font=("Segoe UI", 13, "bold"),
+                command=lambda g=game: self._toggle_game_expanded(g),
+            ).pack(fill="x", pady=(10, 2))
+            if not game_expanded:
+                continue
+
+            for character, group in characters:
+                char_key = (game, character)
+                char_expanded = self.combo_char_expanded.get(char_key, True)
+                char_wrap = ctk.CTkFrame(self.combos_list_frame, fg_color="transparent")
+                char_wrap.pack(fill="x", padx=(16, 0))
                 ctk.CTkButton(
-                    row, text="Arreter l'entrainement" if is_active else "S'entrainer", width=150,
-                    fg_color=ACCENT if is_active else PRIMARY,
-                    hover_color=("#e0143a" if is_active else PRIMARY_HOVER), text_color="#ffffff",
-                    command=lambda c=combo, active=is_active: self._toggle_trainer(c, active),
-                ).pack(side="left", padx=4)
-                ctk.CTkButton(
-                    row, text="Supprimer", width=90, fg_color=CARD, hover_color=BG, text_color=TEXT,
-                    border_width=1, border_color=BORDER, command=lambda c=combo: self._delete_combo(c),
-                ).pack(side="left")
+                    char_wrap,
+                    text=f"{'▾' if char_expanded else '▸'}  {character}  ({len(group)})",
+                    anchor="w", height=28, fg_color="transparent", hover_color=BG, text_color=TEXT,
+                    font=("Segoe UI", 12, "bold"),
+                    command=lambda k=char_key: self._toggle_char_expanded(k),
+                ).pack(fill="x", pady=(4, 2))
+                if not char_expanded:
+                    continue
+
+                for combo in group:
+                    row = ctk.CTkFrame(char_wrap, fg_color="transparent")
+                    row.pack(fill="x", pady=2, padx=(20, 0))
+                    ctk.CTkLabel(row, text=combo["name"], text_color=TEXT, width=200, anchor="w").pack(side="left")
+                    is_active = combo["id"] == active_id
+                    ctk.CTkButton(
+                        row, text="Arreter l'entrainement" if is_active else "S'entrainer", width=150,
+                        fg_color=ACCENT if is_active else PRIMARY,
+                        hover_color=("#e0143a" if is_active else PRIMARY_HOVER), text_color="#ffffff",
+                        command=lambda c=combo, active=is_active: self._toggle_trainer(c, active),
+                    ).pack(side="left", padx=4)
+                    ctk.CTkButton(
+                        row, text="Supprimer", width=90, fg_color=CARD, hover_color=BG, text_color=TEXT,
+                        border_width=1, border_color=BORDER, command=lambda c=combo: self._delete_combo(c),
+                    ).pack(side="left")
+
+    def _toggle_game_expanded(self, game):
+        self.combo_game_expanded[game] = not self.combo_game_expanded.get(game, True)
+        self._refresh_combos_list()
+
+    def _toggle_char_expanded(self, char_key):
+        self.combo_char_expanded[char_key] = not self.combo_char_expanded.get(char_key, True)
+        self._refresh_combos_list()
 
     def _delete_combo(self, combo):
         if self.active_trainer_combo_id == combo["id"] and self.trainer_process is not None:
@@ -867,16 +905,83 @@ class SettingsApp:
         banner.pack(side="top", fill="x", pady=(0, 12), before=self.joystick_card)
         inner = ctk.CTkFrame(banner, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=12)
-        ctk.CTkLabel(
+        self.update_banner_label = ctk.CTkLabel(
             inner, text=f"Nouvelle version disponible : v{info['version']}",
             text_color="#ffffff", font=("Segoe UI", 13, "bold"),
-        ).pack(side="left")
+        )
+        self.update_banner_label.pack(side="left")
+        self.update_banner_button = ctk.CTkButton(
+            inner, text="Mettre a jour", command=lambda: self._start_auto_update(info),
+            fg_color="#ffffff", hover_color="#f0f0f0", text_color=ACCENT, width=130,
+        )
+        self.update_banner_button.pack(side="right")
         ctk.CTkButton(
-            inner, text="Telecharger", command=lambda: webbrowser.open(info["url"]),
-            fg_color="#ffffff", hover_color="#f0f0f0", text_color=ACCENT, width=120,
-        ).pack(side="right")
+            inner, text="Page de la release", command=lambda: webbrowser.open(info["url"]),
+            fg_color="transparent", hover_color="#a80d26", text_color="#ffffff",
+            border_width=1, border_color="#ffffff", width=150,
+        ).pack(side="right", padx=(0, 8))
         self.update_banner = banner
         self.status_var.set("")
+
+    def _start_auto_update(self, info):
+        if not info.get("installer_url"):
+            # Pas d'asset installeur attache a la release (ex: release
+            # publiee a la main sans binaire) — on ne peut pas faire
+            # mieux qu'ouvrir la page pour un telechargement manuel.
+            webbrowser.open(info["url"])
+            return
+        self.update_banner_button.configure(state="disabled", text="Telechargement...")
+        self.update_banner_label.configure(text=f"Telechargement de la mise a jour v{info['version']}...")
+        threading.Thread(target=self._download_update_background, args=(info,), daemon=True).start()
+
+    def _download_update_background(self, info):
+        """Thread d'arriere-plan : ne touche jamais aux widgets directement,
+        tout passe par root.after()."""
+        dest = Path(tempfile.gettempdir()) / f"HitGlow-Setup-{info['version']}.exe"
+
+        def on_progress(written, total):
+            percent = int(written * 100 / total) if total else None
+            self.root.after(0, lambda: self._update_download_progress(percent))
+
+        try:
+            updater.download_file(info["installer_url"], dest, progress_callback=on_progress)
+        except Exception:
+            self.root.after(0, lambda: self._on_update_download_failed(info))
+            return
+        self.root.after(0, lambda: self._on_update_downloaded(dest, info))
+
+    def _update_download_progress(self, percent):
+        if not hasattr(self, "update_banner_label") or self.update_banner is None:
+            return
+        if percent is None:
+            self.update_banner_label.configure(text="Telechargement de la mise a jour...")
+        else:
+            self.update_banner_label.configure(text=f"Telechargement de la mise a jour... {percent}%")
+
+    def _on_update_download_failed(self, info, message="Echec du telechargement."):
+        if self.update_banner is None:
+            return
+        self.update_banner_label.configure(text=f"{message} Reessaie, ou utilise la page de la release.")
+        self.update_banner_button.configure(state="normal", text="Reessayer", command=lambda: self._start_auto_update(info))
+
+    def _on_update_downloaded(self, installer_path, info):
+        if self.update_banner is None:
+            return
+        self.update_banner_label.configure(text=f"Mise a jour v{info['version']} prete — lancement de l'installeur...")
+        # L'installeur va remplacer HitGlow.exe : tout processus lance
+        # depuis ce meme fichier (overlay, trainer, cette fenetre) doit
+        # se fermer pour ne pas bloquer l'ecriture par un verrou de
+        # fichier Windows.
+        if self.overlay_process is not None and self.overlay_process.poll() is None:
+            self.overlay_process.terminate()
+        if self.trainer_process is not None and self.trainer_process.poll() is None:
+            self.trainer_process.terminate()
+        try:
+            subprocess.Popen([str(installer_path)])
+        except OSError:
+            self._on_update_download_failed(info, message="Impossible de lancer l'installeur telecharge.")
+            return
+        self.root.after(500, self.root.destroy)
 
 
 def _create_hidden_sdl_window():

@@ -39,7 +39,9 @@ integree : aucun fichier a editer a la main.
   annotations specifiques a un personnage) comme repere a valider soi-meme
   (barre Espace).
 - Combos ranges par jeu et personnage (regroupement insensible a la
-  casse) pour s'y retrouver facilement quand la liste grandit.
+  casse) sous forme de menus deroulants repliables — clique sur "Tekken 8"
+  ou sur un personnage pour reduire/deployer sa liste, pratique quand elle
+  grandit.
 - Le bouton "S'entrainer" devient "Arreter l'entrainement" tant que le
   trainer tourne — pas besoin d'aller fermer sa fenetre a la main.
 - Touches en jeu : `R` pour recommencer, `Espace` pour valider une etape
@@ -58,9 +60,12 @@ integree : aucun fichier a editer a la main.
   configurables depuis l'interface.
 - Aide OBS integree (onglet dedie).
 - Verification de mise a jour au demarrage (et a la demande) contre les
-  releases GitHub : une bannière propose de telecharger la nouvelle
-  version si disponible. Aucun telechargement ni execution automatique —
-  le bouton ouvre juste la page de la release dans ton navigateur.
+  releases GitHub : une bannière propose une mise a jour en un clic si une
+  nouvelle version est disponible. **Mettre a jour** telecharge le nouvel
+  installeur, le lance, puis ferme HitGlow (overlay et trainer compris)
+  pour laisser l'installeur remplacer les fichiers — comme la plupart des
+  logiciels. Un lien "Page de la release" reste disponible pour un
+  telechargement manuel.
 
 ## Prerequis
 

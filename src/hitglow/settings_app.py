@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import threading
+from ctypes import wintypes
 import tkinter as tk
 import webbrowser
 from pathlib import Path
@@ -128,6 +129,22 @@ def _surface_to_photoimage(surface, background_rgb):
     return tk.PhotoImage(data=header + raw)
 
 
+# Controle direct de la fenetre overlay (titre "HitGlow", voir OverlayWindow)
+# depuis ce processus separe — pas besoin d'IPC, Windows autorise tout
+# processus a manipuler la visibilite d'une fenetre dont il connait le HWND.
+_user32 = ctypes.windll.user32
+_user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+_user32.FindWindowW.restype = wintypes.HWND
+_user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+_user32.ShowWindow.restype = wintypes.BOOL
+_SW_HIDE = 0
+_SW_SHOW = 5
+
+
+def _find_overlay_hwnd():
+    return _user32.FindWindowW(None, "HitGlow")
+
+
 def _overlay_launch_args():
     if getattr(sys, "frozen", False):
         return [sys.executable, "--overlay"]
@@ -150,7 +167,9 @@ class SettingsApp:
         self.joystick_reader = None
         self.use_keyboard_device = False
         self.overlay_process = None
+        self.overlay_hidden = False
         self.trainer_process = None
+        self.active_trainer_combo_id = None
         self.combos = combo_store.load_combos()
         self.combo_rows = {}
         self.detect_target = None
@@ -533,19 +552,26 @@ class SettingsApp:
 
         form = ctk.CTkFrame(scroll, fg_color="transparent")
         form.pack(fill="x", pady=(6, 4))
-        ctk.CTkLabel(form, text="Personnage", text_color=TEXT, width=90, anchor="w").grid(row=0, column=0, sticky="w", pady=3)
+        ctk.CTkLabel(form, text="Jeu", text_color=TEXT, width=90, anchor="w").grid(row=0, column=0, sticky="w", pady=3)
+        self.combo_game_var = tk.StringVar(value="Tekken 8")
+        ctk.CTkEntry(
+            form, textvariable=self.combo_game_var, width=220,
+            fg_color=BG, text_color=TEXT, border_color=BORDER,
+        ).grid(row=0, column=1, sticky="w", pady=3)
+
+        ctk.CTkLabel(form, text="Personnage", text_color=TEXT, width=90, anchor="w").grid(row=1, column=0, sticky="w", pady=3)
         self.combo_character_var = tk.StringVar()
         ctk.CTkEntry(
             form, textvariable=self.combo_character_var, width=220,
             fg_color=BG, text_color=TEXT, border_color=BORDER,
-        ).grid(row=0, column=1, sticky="w", pady=3)
+        ).grid(row=1, column=1, sticky="w", pady=3)
 
-        ctk.CTkLabel(form, text="Nom", text_color=TEXT, width=90, anchor="w").grid(row=1, column=0, sticky="w", pady=3)
+        ctk.CTkLabel(form, text="Nom", text_color=TEXT, width=90, anchor="w").grid(row=2, column=0, sticky="w", pady=3)
         self.combo_name_var = tk.StringVar()
         ctk.CTkEntry(
             form, textvariable=self.combo_name_var, width=220,
             fg_color=BG, text_color=TEXT, border_color=BORDER,
-        ).grid(row=1, column=1, sticky="w", pady=3)
+        ).grid(row=2, column=1, sticky="w", pady=3)
 
         ctk.CTkLabel(
             scroll, text="Notation (collee depuis ta doc, ex: f+3,1 ⏵ df+1 ⏵ f+2,2)",
@@ -595,13 +621,14 @@ class SettingsApp:
         )
 
     def _save_new_combo(self):
+        game = self.combo_game_var.get().strip()
         character = self.combo_character_var.get().strip()
         name = self.combo_name_var.get().strip()
         notation = self.combo_notation_box.get("1.0", "end").strip()
         if not character or not name or not notation:
             self.status_var.set("Renseigne personnage, nom et notation avant d'enregistrer.")
             return
-        combo_store.add_combo(self.combos, character, name, notation)
+        combo_store.add_combo(self.combos, character, name, notation, game=game)
         combo_store.save_combos(self.combos)
         self.combo_character_var.set("")
         self.combo_name_var.set("")
@@ -616,31 +643,56 @@ class SettingsApp:
         if not self.combos:
             ctk.CTkLabel(self.combos_list_frame, text="Aucun combo enregistre pour l'instant.", text_color=MUTED).pack(anchor="w")
             return
-        for combo in self.combos:
-            row = ctk.CTkFrame(self.combos_list_frame, fg_color="transparent")
-            row.pack(fill="x", pady=2)
+
+        trainer_alive = self.trainer_process is not None and self.trainer_process.poll() is None
+        active_id = self.active_trainer_combo_id if trainer_alive else None
+
+        for (game, character), group in combo_store.grouped_by_game_and_character(self.combos):
             ctk.CTkLabel(
-                row, text=f"{combo['character']} — {combo['name']}", text_color=TEXT, width=260, anchor="w",
-            ).pack(side="left")
-            ctk.CTkButton(
-                row, text="S'entrainer", width=110, fg_color=PRIMARY, hover_color=PRIMARY_HOVER, text_color="#ffffff",
-                command=lambda c=combo: self._launch_trainer(c),
-            ).pack(side="left", padx=4)
-            ctk.CTkButton(
-                row, text="Supprimer", width=90, fg_color=CARD, hover_color=BG, text_color=TEXT,
-                border_width=1, border_color=BORDER, command=lambda c=combo: self._delete_combo(c),
-            ).pack(side="left")
+                self.combos_list_frame, text=f"{game} — {character}", text_color=TEXT,
+                font=("Segoe UI", 12, "bold"),
+            ).pack(anchor="w", pady=(10, 2))
+            for combo in group:
+                row = ctk.CTkFrame(self.combos_list_frame, fg_color="transparent")
+                row.pack(fill="x", pady=2, padx=(12, 0))
+                ctk.CTkLabel(row, text=combo["name"], text_color=TEXT, width=220, anchor="w").pack(side="left")
+                is_active = combo["id"] == active_id
+                ctk.CTkButton(
+                    row, text="Arreter l'entrainement" if is_active else "S'entrainer", width=150,
+                    fg_color=ACCENT if is_active else PRIMARY,
+                    hover_color=("#e0143a" if is_active else PRIMARY_HOVER), text_color="#ffffff",
+                    command=lambda c=combo, active=is_active: self._toggle_trainer(c, active),
+                ).pack(side="left", padx=4)
+                ctk.CTkButton(
+                    row, text="Supprimer", width=90, fg_color=CARD, hover_color=BG, text_color=TEXT,
+                    border_width=1, border_color=BORDER, command=lambda c=combo: self._delete_combo(c),
+                ).pack(side="left")
 
     def _delete_combo(self, combo):
+        if self.active_trainer_combo_id == combo["id"] and self.trainer_process is not None:
+            self.trainer_process.terminate()
+            self.trainer_process = None
+            self.active_trainer_combo_id = None
         combo_store.remove_combo(self.combos, combo["id"])
         combo_store.save_combos(self.combos)
         self._refresh_combos_list()
 
-    def _launch_trainer(self, combo):
+    def _toggle_trainer(self, combo, currently_active):
+        if currently_active:
+            if self.trainer_process is not None:
+                self.trainer_process.terminate()
+            self.trainer_process = None
+            self.active_trainer_combo_id = None
+            self.status_var.set("Entrainement arrete.")
+            self._refresh_combos_list()
+            return
+
         if self.trainer_process is not None and self.trainer_process.poll() is None:
             self.trainer_process.terminate()
         self.trainer_process = subprocess.Popen(_trainer_launch_args(combo["id"]))
+        self.active_trainer_combo_id = combo["id"]
         self.status_var.set(f"Trainer lance : {combo['character']} — {combo['name']}")
+        self._refresh_combos_list()
 
     # -------------------------------------------------------------- OBS
     def _build_obs_tab(self, parent):
@@ -658,6 +710,11 @@ class SettingsApp:
             fg_color=PRIMARY, hover_color=PRIMARY_HOVER, text_color="#ffffff", font=("Segoe UI", 13, "bold"),
         )
         self.launch_button.pack(side="left")
+        self.hide_overlay_button = ctk.CTkButton(
+            card, text="Masquer l'overlay", command=self._toggle_overlay_visibility, height=42,
+            fg_color=CARD, hover_color=BG, text_color=TEXT, border_width=1, border_color=BORDER,
+        )
+        self.hide_overlay_button.pack(side="left", padx=(8, 0))
         ctk.CTkLabel(card, textvariable=self.status_var, text_color=MUTED).pack(side="left", padx=14)
 
         version_row = ctk.CTkFrame(card, fg_color="transparent")
@@ -672,14 +729,28 @@ class SettingsApp:
         if self.overlay_process is not None and self.overlay_process.poll() is None:
             self.overlay_process.terminate()
             self.overlay_process = None
+            self.overlay_hidden = False
             self.launch_button.configure(text="Lancer l'overlay")
+            self.hide_overlay_button.configure(text="Masquer l'overlay")
             self.status_var.set("Overlay arrete.")
             return
 
         settings_store.save_settings(self.settings)
         self.overlay_process = subprocess.Popen(_overlay_launch_args())
+        self.overlay_hidden = False
         self.launch_button.configure(text="Arreter l'overlay")
+        self.hide_overlay_button.configure(text="Masquer l'overlay")
         self.status_var.set("Overlay lance.")
+
+    def _toggle_overlay_visibility(self):
+        hwnd = _find_overlay_hwnd()
+        if not hwnd:
+            self.status_var.set("Overlay introuvable — lance-le d'abord.")
+            return
+        self.overlay_hidden = not self.overlay_hidden
+        _user32.ShowWindow(hwnd, _SW_HIDE if self.overlay_hidden else _SW_SHOW)
+        self.hide_overlay_button.configure(text="Afficher l'overlay" if self.overlay_hidden else "Masquer l'overlay")
+        self.status_var.set("Overlay masque." if self.overlay_hidden else "Overlay affiche.")
 
     # ----------------------------------------------------------- preview
     def _rebuild_glow_states(self):

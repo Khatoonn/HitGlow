@@ -23,6 +23,23 @@ integree : aucun fichier a editer a la main.
 - Fondu de couleur configurable a l'extinction d'un bouton.
 - Fonctionne en arriere-plan : les inputs sont lus meme quand le jeu ou
   OBS ont le focus, pas HitGlow.
+- Icone dans la zone de notification (system tray) : clic pour
+  afficher/masquer l'overlay sans le fermer — pratique car il reste
+  toujours au-dessus, ce qui peut gener hors stream.
+
+**Combo trainer**
+- Fenetre separee (transparente, deplacable) qui affiche un combo sous
+  forme de ronds colores façon notation Tekken 8, et suit ta progression
+  en direct via tes vrais inputs (manette et/ou clavier).
+- Les combos se creent en collant une notation (ex: `f+3,1 ⏵ df+1 ⏵ f+2,2`)
+  dans l'onglet **Combos** de la fenetre de parametrage — HitGlow detecte
+  automatiquement les parties qu'il peut suivre en direct (chiffres,
+  directions y compris diagonales) et affiche le reste (noms de stance,
+  annotations specifiques a un personnage) comme repere a valider soi-meme
+  (barre Espace).
+- Touches en jeu : `R` pour recommencer, `Espace` pour valider une etape
+  manuelle, `Echap` pour fermer. Le combo se relance automatiquement une
+  fois termine (entrainement en boucle).
 
 **Fenetre de parametrage**
 - Mapping par detection : clique "Detecter", appuie sur l'input physique
@@ -99,6 +116,27 @@ Onglet **Apparence** : couleurs (eteint, directions, rangee haute, rangee
 basse, texte), fond de repli (chroma key), duree du fondu, police des
 labels (liste des polices systeme, ou fichier `.ttf`/`.otf` personnalise).
 
+## Combo trainer
+
+Onglet **Combos** de la fenetre de parametrage :
+
+1. Renseigne le personnage et un nom pour le combo.
+2. Colle la notation dans le champ texte (depuis une doc/tableur de
+   combos, ex: `f+3,1 ⏵ df+1,[ 2~1 ] ⏵ f+2,2 ⏵ 3,1,2`). Les virgules et
+   fleches (`⏵`, `→`, `->`) separent les etapes.
+3. Clique **Apercu** pour voir combien d'etapes seront suivies
+   automatiquement (chiffres/directions) vs a valider soi-meme (noms de
+   stance, conditions type `CH`/`ws`/`heat on`, annotations `T!`/`~X`).
+4. **Enregistrer** puis **S'entrainer** : une fenetre transparente separee
+   s'ouvre, affiche le combo en ronds colores et avance automatiquement
+   quand tu presses les bons inputs, dans l'ordre (pas de fenetre de
+   timing — c'est un outil pour memoriser l'enchainement, pas un juge de
+   precision frame par frame).
+
+Dans le trainer : `R` pour recommencer, `Espace` pour valider une etape a
+faire soi-meme, `Echap` pour fermer. Le combo boucle automatiquement une
+fois termine.
+
 ## Integration OBS
 
 Voir aussi l'onglet **Aide OBS** dans l'application.
@@ -145,9 +183,15 @@ HitGlow/
 ├── src/hitglow/
 │   ├── settings_app.py          # fenetre de parametrage (customtkinter)
 │   ├── overlay_main.py          # boucle de l'overlay (mode --overlay)
+│   ├── trainer_main.py          # boucle du combo trainer (mode --trainer)
 │   ├── settings_store.py        # persistance JSON + logique de mapping/detection
+│   ├── combo_store.py           # persistance des combos (combos.json)
+│   ├── combo_parser.py          # notation Tekken -> etapes trackables/texte
+│   ├── combo_tracker.py         # suivi de progression dans un combo
+│   ├── combo_render.py          # rendu de la barre de combo (ronds/icones)
 │   ├── input_reader.py          # lecture manette (pygame) et clavier (Win32)
 │   ├── overlay_window.py        # fenetre transparente Win32 + rendu
+│   ├── tray_icon.py              # icone system tray (afficher/masquer)
 │   ├── calibration.py           # formatage overlay de calibration (debug)
 │   └── layout.py                 # positions/tailles des ronds
 ├── installer/HitGlow.iss     # script Inno Setup

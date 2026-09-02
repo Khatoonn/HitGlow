@@ -7,14 +7,17 @@ import ctypes
 import os
 import subprocess
 import sys
+import threading
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import colorchooser, filedialog
 
 import customtkinter as ctk
 import pygame
 
-from hitglow import combo_store, layout, settings_store
+from hitglow import __version__ as HITGLOW_VERSION
+from hitglow import combo_store, layout, settings_store, updater
 from hitglow.combo_parser import parse_combo_notation
 from hitglow.input_reader import JoystickReader, key_name, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import build_glows, render_frame
@@ -159,6 +162,7 @@ class SettingsApp:
         self.color_swatches = {}
         self.preview_image = None
         self.glows = {}
+        self.update_banner = None
         self._rebuild_glow_states()
 
         ctk.set_appearance_mode("light")
@@ -187,6 +191,8 @@ class SettingsApp:
         self._sync_mapping_labels()
         self._update_preview()
 
+        threading.Thread(target=self._check_for_update_background, daemon=True).start()
+
     # ------------------------------------------------------------ cards
     @staticmethod
     def _card(parent, **kwargs):
@@ -198,6 +204,7 @@ class SettingsApp:
     def _build_joystick_section(self, parent):
         card = self._card(parent)
         card.pack(side="top", fill="x", pady=(0, 12))
+        self.joystick_card = card
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=14)
 
@@ -653,6 +660,14 @@ class SettingsApp:
         self.launch_button.pack(side="left")
         ctk.CTkLabel(card, textvariable=self.status_var, text_color=MUTED).pack(side="left", padx=14)
 
+        version_row = ctk.CTkFrame(card, fg_color="transparent")
+        version_row.pack(side="right")
+        ctk.CTkLabel(version_row, text=f"v{HITGLOW_VERSION}", text_color=MUTED).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(
+            version_row, text="Verifier les mises a jour", command=self._check_for_update_manual,
+            width=170, fg_color=CARD, hover_color=BG, text_color=TEXT, border_width=1, border_color=BORDER,
+        ).pack(side="left")
+
     def _toggle_overlay(self):
         if self.overlay_process is not None and self.overlay_process.poll() is None:
             self.overlay_process.terminate()
@@ -758,6 +773,39 @@ class SettingsApp:
         self.preview_label.configure(image=self.preview_image)
 
         self.root.after(PREVIEW_INTERVAL_MS, self._update_preview)
+
+    # --------------------------------------------------------- mise a jour
+    def _check_for_update_manual(self):
+        self.status_var.set("Verification en cours...")
+        threading.Thread(target=self._check_for_update_background, args=(True,), daemon=True).start()
+
+    def _check_for_update_background(self, manual=False):
+        """Appelee depuis un thread d'arriere-plan (jamais le thread Tk
+        principal) — ne touche jamais directement aux widgets, passe par
+        root.after() pour revenir sur le thread principal."""
+        info = updater.check_for_update(HITGLOW_VERSION)
+        if info is not None:
+            self.root.after(0, lambda: self._show_update_banner(info))
+        elif manual:
+            self.root.after(0, lambda: self.status_var.set("HitGlow est a jour."))
+
+    def _show_update_banner(self, info):
+        if self.update_banner is not None:
+            return
+        banner = self._card(self.joystick_card.master, fg_color=ACCENT, border_width=0)
+        banner.pack(side="top", fill="x", pady=(0, 12), before=self.joystick_card)
+        inner = ctk.CTkFrame(banner, fg_color="transparent")
+        inner.pack(fill="x", padx=16, pady=12)
+        ctk.CTkLabel(
+            inner, text=f"Nouvelle version disponible : v{info['version']}",
+            text_color="#ffffff", font=("Segoe UI", 13, "bold"),
+        ).pack(side="left")
+        ctk.CTkButton(
+            inner, text="Telecharger", command=lambda: webbrowser.open(info["url"]),
+            fg_color="#ffffff", hover_color="#f0f0f0", text_color=ACCENT, width=120,
+        ).pack(side="right")
+        self.update_banner = banner
+        self.status_var.set("")
 
 
 def _create_hidden_sdl_window():

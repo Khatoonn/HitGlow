@@ -52,6 +52,10 @@ integree : aucun fichier a editer a la main.
 - Couleurs, transparence, duree de fondu et police entierement
   configurables depuis l'interface.
 - Aide OBS integree (onglet dedie).
+- Verification de mise a jour au demarrage (et a la demande) contre les
+  releases GitHub : une bannière propose de telecharger la nouvelle
+  version si disponible. Aucun telechargement ni execution automatique —
+  le bouton ouvre juste la page de la release dans ton navigateur.
 
 ## Prerequis
 
@@ -192,6 +196,7 @@ HitGlow/
 │   ├── input_reader.py          # lecture manette (pygame) et clavier (Win32)
 │   ├── overlay_window.py        # fenetre transparente Win32 + rendu
 │   ├── tray_icon.py              # icone system tray (afficher/masquer)
+│   ├── updater.py                # verification de version via releases GitHub
 │   ├── calibration.py           # formatage overlay de calibration (debug)
 │   └── layout.py                 # positions/tailles des ronds
 ├── installer/HitGlow.iss     # script Inno Setup

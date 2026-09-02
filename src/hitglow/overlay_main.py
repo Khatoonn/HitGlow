@@ -3,11 +3,13 @@ lit la manette selectionnee, affiche la fenetre transparente. Lance depuis
 la fenetre de parametrage (settings_app.py) en sous-processus."""
 
 import os
+import queue
 import sys
+import threading
 
 import pygame
 
-from hitglow import layout, settings_store
+from hitglow import layout, settings_store, tray_icon
 from hitglow.calibration import format_calibration_lines
 from hitglow.input_reader import JoystickReader, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import OverlayWindow, build_glows, get_cursor_pos, render_frame
@@ -76,9 +78,26 @@ def run():
     calibration_mode = False
     dragging = False
     running = True
+    visible = True
     clock = pygame.time.Clock()
 
+    tray_events = queue.Queue()
+    icon = tray_icon.create_tray_icon(
+        on_toggle=lambda: tray_events.put("toggle"),
+        on_quit=lambda: tray_events.put("quit"),
+    )
+    icon_thread = threading.Thread(target=icon.run, daemon=True)
+    icon_thread.start()
+
     while running:
+        while not tray_events.empty():
+            tray_event = tray_events.get_nowait()
+            if tray_event == "toggle":
+                visible = not visible
+                window.show() if visible else window.hide()
+            elif tray_event == "quit":
+                running = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -141,5 +160,6 @@ def run():
     settings["scale"] = scale
     settings_store.save_settings(settings)
 
+    icon.stop()
     window.close()
     pygame.quit()

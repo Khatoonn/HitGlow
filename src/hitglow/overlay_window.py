@@ -185,6 +185,8 @@ HWND_TOPMOST = -1
 SWP_NOMOVE = 0x0002
 SWP_NOSIZE = 0x0001
 SWP_NOZORDER = 0x0004
+SW_HIDE = 0
+SW_SHOW = 5
 ULW_ALPHA = 0x02
 AC_SRC_OVER = 0x00
 AC_SRC_ALPHA = 0x01
@@ -380,6 +382,13 @@ class OverlayWindow:
         x, y = pos
         user32.SetWindowPos(self.hwnd, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER)
         self._win_pos = (x, y)
+
+    def hide(self):
+        user32.ShowWindow(self.hwnd, SW_HIDE)
+
+    def show(self):
+        user32.ShowWindow(self.hwnd, SW_SHOW)
+        self._make_topmost()
 
     def present(self, surface):
         if self.layered is not None:

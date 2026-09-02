@@ -23,8 +23,9 @@ integree : aucun fichier a editer a la main.
 - Fondu de couleur configurable a l'extinction d'un bouton.
 - Fonctionne en arriere-plan : les inputs sont lus meme quand le jeu ou
   OBS ont le focus, pas HitGlow.
-- Icone dans la zone de notification (system tray) : clic pour
-  afficher/masquer l'overlay sans le fermer — pratique car il reste
+- Icone dans la zone de notification (system tray) **et** bouton
+  "Masquer l'overlay" dans la fenetre de parametrage : deux façons
+  d'afficher/masquer l'overlay sans le fermer — pratique car il reste
   toujours au-dessus, ce qui peut gener hors stream.
 
 **Combo trainer**
@@ -37,6 +38,10 @@ integree : aucun fichier a editer a la main.
   directions y compris diagonales) et affiche le reste (noms de stance,
   annotations specifiques a un personnage) comme repere a valider soi-meme
   (barre Espace).
+- Combos ranges par jeu et personnage (regroupement insensible a la
+  casse) pour s'y retrouver facilement quand la liste grandit.
+- Le bouton "S'entrainer" devient "Arreter l'entrainement" tant que le
+  trainer tourne — pas besoin d'aller fermer sa fenetre a la main.
 - Touches en jeu : `R` pour recommencer, `Espace` pour valider une etape
   manuelle, `Echap` pour fermer. Le combo se relance automatiquement une
   fois termine (entrainement en boucle).

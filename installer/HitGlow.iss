@@ -4,7 +4,7 @@
 ; Prerequis : dist\HitGlow.exe doit deja exister (voir README, section Build).
 
 #define MyAppName "HitGlow"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "Khatoonn"
 #define MyAppURL "https://github.com/Khatoonn/HitGlow"
 #define MyAppExeName "HitGlow.exe"

@@ -14,7 +14,8 @@ from tkinter import colorchooser, filedialog
 import customtkinter as ctk
 import pygame
 
-from hitglow import layout, settings_store
+from hitglow import combo_store, layout, settings_store
+from hitglow.combo_parser import parse_combo_notation
 from hitglow.input_reader import JoystickReader, key_name, poll_keyboard, resolve_action_buttons, resolve_directions
 from hitglow.overlay_window import build_glows, render_frame
 
@@ -131,6 +132,13 @@ def _overlay_launch_args():
     return [sys.executable, str(script), "--overlay"]
 
 
+def _trainer_launch_args(combo_id):
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--trainer", "--combo", combo_id]
+    script = Path(__file__).resolve().parent.parent.parent / "run_hitglow.py"
+    return [sys.executable, str(script), "--trainer", "--combo", combo_id]
+
+
 class SettingsApp:
     def __init__(self, root):
         self.root = root
@@ -139,6 +147,9 @@ class SettingsApp:
         self.joystick_reader = None
         self.use_keyboard_device = False
         self.overlay_process = None
+        self.trainer_process = None
+        self.combos = combo_store.load_combos()
+        self.combo_rows = {}
         self.detect_target = None
         self.detect_baseline = None
         self.detect_deadline = None
@@ -263,10 +274,12 @@ class SettingsApp:
 
         mapping_tab = tabview.add("Mapping")
         appearance_tab = tabview.add("Apparence")
+        combos_tab = tabview.add("Combos")
         obs_tab = tabview.add("Aide OBS")
 
         self._build_mapping_tab(mapping_tab)
         self._build_appearance_tab(appearance_tab)
+        self._build_combos_tab(combos_tab)
         self._build_obs_tab(obs_tab)
 
     # ---------------------------------------------------------- mapping
@@ -503,6 +516,124 @@ class SettingsApp:
         self.fade_value_label.configure(text=f"{self.settings['fade_ms']} ms")
         settings_store.save_settings(self.settings)
         self._rebuild_glow_states()
+
+    # ----------------------------------------------------------- combos
+    def _build_combos_tab(self, parent):
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(scroll, text="Nouveau combo", text_color=TEXT, font=("Segoe UI", 13, "bold")).pack(anchor="w")
+
+        form = ctk.CTkFrame(scroll, fg_color="transparent")
+        form.pack(fill="x", pady=(6, 4))
+        ctk.CTkLabel(form, text="Personnage", text_color=TEXT, width=90, anchor="w").grid(row=0, column=0, sticky="w", pady=3)
+        self.combo_character_var = tk.StringVar()
+        ctk.CTkEntry(
+            form, textvariable=self.combo_character_var, width=220,
+            fg_color=BG, text_color=TEXT, border_color=BORDER,
+        ).grid(row=0, column=1, sticky="w", pady=3)
+
+        ctk.CTkLabel(form, text="Nom", text_color=TEXT, width=90, anchor="w").grid(row=1, column=0, sticky="w", pady=3)
+        self.combo_name_var = tk.StringVar()
+        ctk.CTkEntry(
+            form, textvariable=self.combo_name_var, width=220,
+            fg_color=BG, text_color=TEXT, border_color=BORDER,
+        ).grid(row=1, column=1, sticky="w", pady=3)
+
+        ctk.CTkLabel(
+            scroll, text="Notation (collee depuis ta doc, ex: f+3,1 ⏵ df+1 ⏵ f+2,2)",
+            text_color=MUTED,
+        ).pack(anchor="w", pady=(10, 2))
+        self.combo_notation_box = ctk.CTkTextbox(
+            scroll, height=70, fg_color=BG, text_color=TEXT, border_width=1, border_color=BORDER,
+        )
+        self.combo_notation_box.pack(fill="x")
+
+        preview_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        preview_row.pack(fill="x", pady=(6, 0))
+        ctk.CTkButton(
+            preview_row, text="Apercu", command=self._preview_combo_notation, width=100,
+            fg_color=CARD, hover_color=BG, text_color=TEXT, border_width=1, border_color=BORDER,
+        ).pack(side="left")
+        ctk.CTkButton(
+            preview_row, text="Enregistrer", command=self._save_new_combo, width=120,
+            fg_color=PRIMARY, hover_color=PRIMARY_HOVER, text_color="#ffffff",
+        ).pack(side="left", padx=8)
+
+        self.combo_preview_label = ctk.CTkLabel(scroll, text="", text_color=MUTED, wraplength=480, justify="left")
+        self.combo_preview_label.pack(anchor="w", pady=(8, 0))
+
+        self._separator(scroll)
+
+        ctk.CTkLabel(scroll, text="Combos enregistres", text_color=TEXT, font=("Segoe UI", 13, "bold")).pack(anchor="w")
+        ctk.CTkLabel(
+            scroll, text="Espace = valider une etape a faire soi-meme  ·  R = recommencer  ·  Echap = fermer",
+            text_color=MUTED,
+        ).pack(anchor="w", pady=(2, 8))
+        self.combos_list_frame = ctk.CTkFrame(scroll, fg_color="transparent")
+        self.combos_list_frame.pack(fill="x")
+        self._refresh_combos_list()
+
+    def _preview_combo_notation(self):
+        notation = self.combo_notation_box.get("1.0", "end").strip()
+        steps = parse_combo_notation(notation)
+        if not steps:
+            self.combo_preview_label.configure(text="Aucune etape detectee.")
+            return
+        trackable = sum(1 for s in steps if s["trackable"])
+        manual = len(steps) - trackable
+        parts = " -> ".join(s["raw"] for s in steps)
+        self.combo_preview_label.configure(
+            text=f"{len(steps)} etapes ({trackable} suivies automatiquement, {manual} a valider soi-meme) :\n{parts}",
+        )
+
+    def _save_new_combo(self):
+        character = self.combo_character_var.get().strip()
+        name = self.combo_name_var.get().strip()
+        notation = self.combo_notation_box.get("1.0", "end").strip()
+        if not character or not name or not notation:
+            self.status_var.set("Renseigne personnage, nom et notation avant d'enregistrer.")
+            return
+        combo_store.add_combo(self.combos, character, name, notation)
+        combo_store.save_combos(self.combos)
+        self.combo_character_var.set("")
+        self.combo_name_var.set("")
+        self.combo_notation_box.delete("1.0", "end")
+        self.combo_preview_label.configure(text="")
+        self._refresh_combos_list()
+        self.status_var.set("Combo enregistre.")
+
+    def _refresh_combos_list(self):
+        for child in self.combos_list_frame.winfo_children():
+            child.destroy()
+        if not self.combos:
+            ctk.CTkLabel(self.combos_list_frame, text="Aucun combo enregistre pour l'instant.", text_color=MUTED).pack(anchor="w")
+            return
+        for combo in self.combos:
+            row = ctk.CTkFrame(self.combos_list_frame, fg_color="transparent")
+            row.pack(fill="x", pady=2)
+            ctk.CTkLabel(
+                row, text=f"{combo['character']} — {combo['name']}", text_color=TEXT, width=260, anchor="w",
+            ).pack(side="left")
+            ctk.CTkButton(
+                row, text="S'entrainer", width=110, fg_color=PRIMARY, hover_color=PRIMARY_HOVER, text_color="#ffffff",
+                command=lambda c=combo: self._launch_trainer(c),
+            ).pack(side="left", padx=4)
+            ctk.CTkButton(
+                row, text="Supprimer", width=90, fg_color=CARD, hover_color=BG, text_color=TEXT,
+                border_width=1, border_color=BORDER, command=lambda c=combo: self._delete_combo(c),
+            ).pack(side="left")
+
+    def _delete_combo(self, combo):
+        combo_store.remove_combo(self.combos, combo["id"])
+        combo_store.save_combos(self.combos)
+        self._refresh_combos_list()
+
+    def _launch_trainer(self, combo):
+        if self.trainer_process is not None and self.trainer_process.poll() is None:
+            self.trainer_process.terminate()
+        self.trainer_process = subprocess.Popen(_trainer_launch_args(combo["id"]))
+        self.status_var.set(f"Trainer lance : {combo['character']} — {combo['name']}")
 
     # -------------------------------------------------------------- OBS
     def _build_obs_tab(self, parent):

@@ -48,14 +48,18 @@ def add_combo(combos, character, name, notation, game="Tekken 8"):
 
 def grouped_by_game_and_character(combos):
     """Regroupe les combos par (jeu, personnage), tries alphabetiquement,
-    pour un affichage range plutot qu'une liste plate. Retourne une liste
-    de ((jeu, personnage), [combos]) — un dict perdrait l'ordre trie sur
-    certaines versions de Python de facon fiable pour l'affichage."""
+    pour un affichage range plutot qu'une liste plate. Le regroupement est
+    insensible a la casse ("Steve" et "STEVE" tombent dans le meme groupe)
+    pour eviter que deux saisies differentes du meme nom ne se retrouvent
+    dans des groupes separes ; l'affichage est normalise en Title Case.
+    Retourne une liste de ((jeu, personnage), [combos])."""
     groups = {}
     for combo in combos:
-        key = (combo.get("game") or "Tekken 8", combo["character"])
+        game = (combo.get("game") or "Tekken 8").strip()
+        character = combo["character"].strip()
+        key = (game.lower(), character.lower())
         groups.setdefault(key, []).append(combo)
-    return sorted(groups.items(), key=lambda item: (item[0][0].lower(), item[0][1].lower()))
+    return [((key[0].title(), key[1].title()), groups[key]) for key in sorted(groups)]
 
 
 def remove_combo(combos, combo_id):

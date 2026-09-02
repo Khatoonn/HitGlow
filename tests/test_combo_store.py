@@ -81,3 +81,19 @@ def test_grouped_by_game_and_character_sorts_and_groups():
     ]
     steve_group = dict(groups)[("Tekken 8", "Steve")]
     assert [c["name"] for c in steve_group] == ["S Combo 1", "S Combo 2"]
+
+
+def test_grouped_by_game_and_character_merges_different_casing():
+    # "STEVE" et "Steve" doivent tomber dans le meme groupe, pas deux
+    # groupes separes a cause d'une casse differente entre deux saisies.
+    combos = []
+    add_combo(combos, "STEVE", "Combo A", "f+2")
+    add_combo(combos, "Steve", "Combo B", "d+1")
+    add_combo(combos, "steve", "Combo C", "u+3")
+
+    groups = grouped_by_game_and_character(combos)
+    assert len(groups) == 1
+    (game, character), group = groups[0]
+    assert game == "Tekken 8"
+    assert character == "Steve"
+    assert [c["name"] for c in group] == ["Combo A", "Combo B", "Combo C"]
